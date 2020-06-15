@@ -12,13 +12,18 @@
 #include <sys/types.h>
 #include <unistd.h>
 #endif
-
+#include "utils.h"
 #include "wzerrors.h"
 
 namespace wz {
 
 WZReader::WZReader(const std::string &path)
-    : _position(0), _file(0), _filesize(0), _base(nullptr), _offset(nullptr) {
+    : _position(0),
+      _file(0),
+      _filesize(0),
+      _base(nullptr),
+      _offset(nullptr),
+      _version(0) {
 #ifdef _WIN32
 #else
     _file = open(path.c_str(), O_RDONLY);
@@ -57,21 +62,14 @@ auto WZReader::ReadRawFixedSizeString(uint32_t size) -> std::string {
 }
 
 auto WZReader::Valid() -> bool {
+    boost::unique_lock<boost::mutex> locked(_readlock);
     try {
-        boost::shared_lock<boost::shared_mutex> locked(_readlock);
-        SetPosition(0);
-        auto signature = Read<uint32_t>();
-        auto datasize = Read<uint64_t>();
-        auto headersize = Read<uint32_t>();
-        auto copyright =
-            ReadRawFixedSizeString(headersize - sizeof(uint32_t) -
-                                   sizeof(uint64_t) - sizeof(uint32_t));
-
-        std::cout << copyright;
+        LoadHeader();
+        LoadVersion();
+        return _header.headersize != 0 && _version != 0;
     } catch (...) {
-        return false;
     }
-    return true;
+    return false;
 }
 
 auto WZReader::SetPosition(uint64_t position) -> bool {
@@ -79,6 +77,44 @@ auto WZReader::SetPosition(uint64_t position) -> bool {
     _offset = _base + position;
     _position = position;
     return true;
+}
+
+auto WZReader::LoadHeader() -> void {
+    auto cur_position = GetPosition();
+    SetPosition(0);
+    _header.signature = Read<uint32_t>();
+    _header.datasize = Read<uint64_t>();
+    _header.headersize = Read<uint32_t>();
+    _header.copyright =
+        ReadRawFixedSizeString(_header.headersize - sizeof(uint32_t) -
+                               sizeof(uint64_t) - sizeof(uint32_t));
+    SetPosition(cur_position);
+}
+
+auto WZReader::LoadVersion() -> void {
+    if (_header.headersize == 0) LoadHeader();
+    SetPosition(_header.headersize);
+    auto version_hash = Read<uint16_t>();
+    for (auto version = 0; version < 1000; version++) {
+        std::string str_version = std::to_string(version);
+        if (version_hash == CalculateVersionHash(str_version)) {
+            _version = version;
+            break;
+        }
+    }
+}
+
+auto WZReader::CalculateVersionHash(std::string version) -> uint16_t {
+    if (!utils::string::IsNumber(version)) return 0;
+    uint16_t factor = 0u;
+    for (auto i = 0u; i < version.length(); i++) {
+        factor = ((factor * 0x20) + static_cast<uint16_t>(version[i])) + 1;
+    }
+    uint16_t n1 = (factor >> 0x18) & 0xff;
+    uint16_t n2 = (factor >> 0x10) & 0xff;
+    uint16_t n3 = (factor >> 0x8) & 0xff;
+    uint16_t n4 = factor & 0xff;
+    return ~(n1 ^ n2 ^ n3 ^ n4) & 0xff;
 }
 
 }  // namespace wz
