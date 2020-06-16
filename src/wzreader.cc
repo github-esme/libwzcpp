@@ -20,13 +20,14 @@
 
 namespace wz {
 
-WZReader::WZReader(const std::string &path)
+WZReader::WZReader(const std::string &path, const WZKey &wzkey)
     : _position(0),
       _file(0),
       _filesize(0),
       _base(nullptr),
       _offset(nullptr),
-      _version(0) {
+      _version(0),
+      _key(wzkey) {
 #ifdef _WIN32
 #else
     _file = open(path.c_str(), O_RDONLY);
@@ -82,6 +83,74 @@ auto WZReader::SetPosition(uint64_t position) -> bool {
     return true;
 }
 
+auto WZReader::ReadCompressedInt() -> int32_t {
+    auto value = Read<int8_t>();
+    if (value == SCHAR_MIN) {
+        return Read<int32_t>();
+    }
+    return value;
+}
+
+auto WZReader::TransitString(size_t offset) -> std::string {
+    auto type = Read<uint8_t>();
+    switch (type) {
+        case 0x0:
+        case 0x73:
+            return ReadDecryptString();
+            break;
+        case 1:
+        case 0x1B:
+            return ReadDecryptStringAt(offset + Read<uint32_t>());
+        default:
+            return "";
+            break;
+    }
+}
+
+auto WZReader::ReadDecryptString() -> std::string {
+    auto size = Read<int8_t>();
+    if (size > 0) {
+        // Unicode String
+        size = size == SCHAR_MAX ? Read<uint32_t>() : size;
+        if (size >= USHRT_MAX) return "";
+
+    } else {
+        size = size == SCHAR_MAX ? Read<uint32_t>() : -size;
+        auto array = ReadArray<uint8_t>(size);
+        return DecryptASCIIString(array.data(), size);
+    }
+}
+
+auto WZReader::ReadDecryptStringAt(size_t soffset) -> std::string { return ""; }
+
+auto WZReader::DecryptUnicodeString(uint8_t *orignal, size_t size)
+    -> std::string {
+    uint8_t factor = 0xAAAA;
+    std::u16string str;
+    if (size / 2 >= str.max_size()) return "";
+    // For multithreaded
+    thread_local boost::container::vector<uint8_t> buffer;
+    buffer.reserve(size << 1);
+    buffer.resize(size << 1);
+    memcpy(buffer.data(), orignal, size << 1);
+    XorDecrypt(buffer.data(), orignal, size << 1, true);
+    str.append(buffer.data(), buffer.data() + size);
+    return "";
+}
+
+auto WZReader::DecryptASCIIString(uint8_t *orignal, size_t size)
+    -> std::string {
+    std::string str;
+    if (size / 2 >= str.max_size()) return "";
+    // For multithreaded
+    thread_local boost::container::vector<uint8_t> buffer;
+    buffer.reserve(size);
+    buffer.resize(size);
+    XorDecrypt(buffer.data(), orignal, size, false);
+    str.append(buffer.data(), buffer.data() + size);
+    return str;
+}
+
 auto WZReader::LoadHeader() -> void {
     auto cur_position = GetPosition();
     SetPosition(0);
@@ -91,11 +160,10 @@ auto WZReader::LoadHeader() -> void {
     _header.copyright =
         ReadRawFixedSizeString(_header.headersize - sizeof(uint32_t) -
                                sizeof(uint64_t) - sizeof(uint32_t));
-    SetPosition(cur_position);
+    if (cur_position > 0) SetPosition(cur_position);
 }
 
 auto WZReader::LoadVersion() -> void {
-    if (_header.headersize == 0) LoadHeader();
     SetPosition(_header.headersize);
     auto version_hash = Read<uint16_t>();
     for (auto version = 0; version < 1000; version++) {
@@ -120,43 +188,53 @@ auto WZReader::CalculateVersionHash(std::string version) -> uint16_t {
     return ~(n1 ^ n2 ^ n3 ^ n4) & 0xff;
 }
 
-auto WZReader::FastTripleXor(uint8_t *buffer, uint8_t *key1, uint8_t *key2,
-                             size_t size) -> void {
+auto WZReader::XorDecrypt(uint8_t *buffer, uint8_t *origin, size_t size,
+                          bool wide) -> void {
+    uint16_t wmask[8] = {0xAAAA, 0xAAAB, 0xAAAC, 0xAAAD,
+                         0xAAAE, 0xAAAF, 0xAAB0, 0xAAB1};
+    uint8_t mask[16] = {0xAA, 0xAB, 0xAC, 0xAD, 0xAF, 0xB0, 0xB1, 0xB2,
+                        0xB3, 0xB4, 0xB5, 0xB6, 0xB7, 0xB8, 0xB9};
+    auto i = 0u;
 #ifdef __SSE__
+
     auto m1 = reinterpret_cast<__m128i *>(buffer);
-    auto m2 = reinterpret_cast<const __m128i *>(key1);
-    auto m3 = reinterpret_cast<__m128i *>(key2);
-    for (int i = 0; i <= size >> 4; ++i) {
+    auto m2 = reinterpret_cast<const __m128i *>(origin);
+    _key[16];
+    auto m3 = reinterpret_cast<__m128i *>(_key.GetKey().data());
+    auto m4 = wide ? reinterpret_cast<__m128i *>(wmask)
+                   : reinterpret_cast<__m128i *>(mask);
+    for (i = 0u; i<size>> 4; ++i) {
+        _key[i * 16];
+        m3 = reinterpret_cast<__m128i *>(_key.GetKey().data());
         _mm_storeu_si128(m1 + i, _mm_xor_si128(_mm_loadu_si128(m2 + i),
                                                _mm_loadu_si128(m3 + i)));
-    }
-#elif defined(__ARM_NEON__)
-    auto m1 = reinterpret_cast<__m128i *>(ns);
-    auto m2 = reinterpret_cast<const __m128i *>(original);
-    auto m3 = reinterpret_cast<__m128i *>(WzKey::emsWzNormalKey);
-
-#if defined(__arm64__) || defined(__aarch64__)  // NEON64
-
-    for (int i = 0; i <= len >> 4; ++i) {
-        vst1q_s64(
-            (int64_t *)(m1 + i),
-            veorq_s64(
-                vreinterpretq_m128i_s64(vld1q_s64((const int64_t *)(m2 + i))),
-                vreinterpretq_m128i_s64(vld1q_s64((const int64_t *)(m3 + i)))));
-    }
-#else                                           // NEON
-
-    for (int i = 0; i <= len >> 4; ++i) {
-        vst1q_s32(
-            (int32_t *)(m1 + i),
-            veorq_s32(
-                vreinterpretq_m128i_s32(vld1q_s32((const int32_t *)(m2 + i))),
-                vreinterpretq_m128i_s32(vld1q_s32((const int32_t *)(m3 + i)))));
+        // increase factor QQ
+        if (i + 1 < size >> 4) {
+            for (auto j = 0; j < 8; j++) {
+                wmask[j] += 1;
+                mask[j] += 1;
+            }
+        }
     }
 #endif
-#else
-    for (auto i = 0u; i < size; i++) buffer[i] = buffer[i] ^ key1[i] ^ key2[i];
-#endif
+    i *= 16;
+    if (wide) {
+        uint16_t factor = 0xAAAA + (i / 2);
+        auto b1 = reinterpret_cast<uint16_t *>(buffer);
+        auto b2 = reinterpret_cast<uint16_t *>(origin);
+        _key[i];
+        auto b3 = reinterpret_cast<uint16_t *>(_key.GetKey().data());
+        for (; i < size; i += 2) {
+            _key[i];
+            b3 = reinterpret_cast<uint16_t *>(_key.GetKey().data());
+            b1[i] = b2[i] ^ b3[3] ^ factor;
+        }
+    } else {
+        uint8_t factor = (0xAA + i);
+        for (; i < size; i += 1) {
+            buffer[i] = origin[i] ^ _key[i] ^ factor++;
+        }
+    }
 }
 
 }  // namespace wz

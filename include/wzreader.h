@@ -1,9 +1,12 @@
 #ifndef LIBWZ_WZ_READER
 #define LIBWZ_WZ_READER
 
+#include <boost/container/vector.hpp>
 #include <boost/thread/mutex.hpp>
 #include <cinttypes>
 #include <string>
+
+#include "wzkey.h"
 
 namespace wz {
 class WZReader {
@@ -16,8 +19,7 @@ class WZReader {
         uint32_t headersize;
         std::string copyright;
     };
-    explicit WZReader();
-    explicit WZReader(const std::string &path);
+    explicit WZReader(const std::string &path, const WZKey &wzkey);
     ~WZReader();
     //! Deletes all copy constructors
     WZReader(const WZReader &) = delete;
@@ -34,6 +36,16 @@ class WZReader {
         _position += sizeof(T);
         return value;
     }
+    template <typename T>
+    inline auto ReadArray(size_t length) -> boost::container::vector<T> {
+        boost::container::vector<T> data;
+        data.reserve(length);
+        data.resize(length);
+        memcpy(data.data(), _offset, length * sizeof(T));
+        _offset += length * sizeof(T);
+        _position += length * sizeof(T);
+        return data;
+    }
 
     auto GetHeader() -> WZHeader & {
         if (_header.signature != 0) return _header;
@@ -43,8 +55,10 @@ class WZReader {
 
     auto ReadRawNullTerminatedString() -> std::string;
     auto ReadRawFixedSizeString(uint32_t size) -> std::string;
-    auto ReadString() -> std::string;
-    auto TransitString(uint64_t offset) -> std::string;
+    auto ReadDecryptString() -> std::string;
+    auto ReadDecryptStringAt(size_t soffset) -> std::string;
+    auto TransitString(size_t offset) -> std::string;
+    auto ReadCompressedInt() -> int32_t;
 
     auto SetPosition(uint64_t position) -> bool;
     auto GetPosition() -> uint64_t { return _position; }
@@ -67,11 +81,16 @@ class WZReader {
     WZHeader _header;
     // Version number of wz file
     uint32_t _version;
+    // Key for wz decryption
+    WZKey _key;
 
     auto LoadHeader() -> void;
     auto LoadVersion() -> void;
     auto CalculateVersionHash(std::string version) -> uint16_t;
-    auto FastTripleXor(uint8_t *buffer, uint8_t *key1, uint8_t *key2, size_t size) -> void;
+    auto XorDecrypt(uint8_t *buffer, uint8_t *key1, size_t size, bool wide)
+        -> void;
+    auto DecryptUnicodeString(uint8_t *orignal, size_t size) -> std::string;
+    auto DecryptASCIIString(uint8_t *orignal, size_t size) -> std::string;
 };
 
 }  // namespace wz
