@@ -2,6 +2,7 @@ cmake_minimum_required(VERSION 3.10)
 
 add_executable(test_wz
     test_reader.cc
+    test_wzkey.cc
 )
 
 target_link_libraries(
@@ -9,6 +10,7 @@ target_link_libraries(
         wz 
         GTest::GTest 
         GTest::Main 
+        OpenSSL::Crypto
         ${Boost_FILESYSTEM_LIBRARY}
         ${Boost_SYSTEM_LIBRARY}
         ${Boost_THREAD_LIBRARY}

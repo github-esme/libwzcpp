@@ -1,5 +1,8 @@
 #include "wzreader.h"
 
+#include <string.h>
+#include <wmmintrin.h>
+
 #include <cstdio>
 #include <iostream>
 
@@ -115,6 +118,45 @@ auto WZReader::CalculateVersionHash(std::string version) -> uint16_t {
     uint16_t n3 = (factor >> 0x8) & 0xff;
     uint16_t n4 = factor & 0xff;
     return ~(n1 ^ n2 ^ n3 ^ n4) & 0xff;
+}
+
+auto WZReader::FastTripleXor(uint8_t *buffer, uint8_t *key1, uint8_t *key2,
+                             size_t size) -> void {
+#ifdef __SSE__
+    auto m1 = reinterpret_cast<__m128i *>(buffer);
+    auto m2 = reinterpret_cast<const __m128i *>(key1);
+    auto m3 = reinterpret_cast<__m128i *>(key2);
+    for (int i = 0; i <= size >> 4; ++i) {
+        _mm_storeu_si128(m1 + i, _mm_xor_si128(_mm_loadu_si128(m2 + i),
+                                               _mm_loadu_si128(m3 + i)));
+    }
+#elif defined(__ARM_NEON__)
+    auto m1 = reinterpret_cast<__m128i *>(ns);
+    auto m2 = reinterpret_cast<const __m128i *>(original);
+    auto m3 = reinterpret_cast<__m128i *>(WzKey::emsWzNormalKey);
+
+#if defined(__arm64__) || defined(__aarch64__)  // NEON64
+
+    for (int i = 0; i <= len >> 4; ++i) {
+        vst1q_s64(
+            (int64_t *)(m1 + i),
+            veorq_s64(
+                vreinterpretq_m128i_s64(vld1q_s64((const int64_t *)(m2 + i))),
+                vreinterpretq_m128i_s64(vld1q_s64((const int64_t *)(m3 + i)))));
+    }
+#else                                           // NEON
+
+    for (int i = 0; i <= len >> 4; ++i) {
+        vst1q_s32(
+            (int32_t *)(m1 + i),
+            veorq_s32(
+                vreinterpretq_m128i_s32(vld1q_s32((const int32_t *)(m2 + i))),
+                vreinterpretq_m128i_s32(vld1q_s32((const int32_t *)(m3 + i)))));
+    }
+#endif
+#else
+    for (auto i = 0u; i < size; i++) buffer[i] = buffer[i] ^ key1[i] ^ key2[i];
+#endif
 }
 
 }  // namespace wz

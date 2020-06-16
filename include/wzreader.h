@@ -71,6 +71,7 @@ class WZReader {
     auto LoadHeader() -> void;
     auto LoadVersion() -> void;
     auto CalculateVersionHash(std::string version) -> uint16_t;
+    auto FastTripleXor(uint8_t *buffer, uint8_t *key1, uint8_t *key2, size_t size) -> void;
 };
 
 }  // namespace wz

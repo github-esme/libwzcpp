@@ -11,6 +11,10 @@ namespace wz
                          virtual boost::exception
     {
     };
+        struct WZKeyError : virtual std::exception,
+                         virtual boost::exception
+    {
+    };
     typedef boost::error_info<struct tag_err_str, std::string> err_str;
     typedef boost::error_info<struct tag_err_no, int> err_no;
 

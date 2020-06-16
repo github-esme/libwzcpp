@@ -25,6 +25,10 @@ set(Boost_USE_MULTITHREADED ON)
 find_package(Boost 1.71 COMPONENTS thread system log REQUIRED)
 include_directories(${Boost_INCLUDE_DIRS})
 
+# openssl
+find_package(OpenSSL REQUIRED)
+include_directories(${BoringSSL_INCLUDE_DIR})
+
 # gtest
 enable_testing()
 find_package(GTest REQUIRED)

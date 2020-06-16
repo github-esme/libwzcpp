@@ -15,4 +15,5 @@ TEST(WZ_TEST, WZREADER_VALID) {
     auto header = reader.GetHeader();
     ASSERT_EQ(header.signature, 19280);
     ASSERT_EQ(reader.GetVersion(), 224);
+    ASSERT_EQ(reader.Valid(), true);
 }
