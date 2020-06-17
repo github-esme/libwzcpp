@@ -123,6 +123,7 @@ auto WZReader::TransitString(size_t offset) -> std::string {
         case 0x1B:
             return ReadDecryptStringAt(offset + Read<uint32_t>());
         default:
+            printf("[Error] Unknown Transit String Type: %d\n", type);
             return "";
             break;
     }

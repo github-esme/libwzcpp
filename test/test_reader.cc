@@ -47,31 +47,47 @@ TEST(WZ_TEST, WZREADER_PARSE_ROOT) {
         0x00, 0x00, 0x33, 0x00, 0x00, 0x00, 0x52, 0x00, 0x00, 0x00};
     boost::container::vector<uint8_t> iv = {0, 0, 0, 0};
     wz::WZKey wzkey(key, iv);
-    wz::WZReader reader("../../wz/Effect.wz", wzkey);
+    wz::WZReader reader("../../wz/Character.wz", wzkey);
     reader.Valid();
     reader.GetVersion();
     //  wzdirectory
-    auto entry_count = reader.ReadCompressedInt();
-    for (auto i = 0u; i < entry_count; i++) {
-        auto type = reader.Read<uint8_t>();
-        std::string identity = "";
-        switch (type) {
-            case 1:
-            case 2:
-                identity = reader.ReadDecryptStringAt(
-                    reader.GetHeader().size + 1 + reader.Read<int32_t>());
-                break;
-            case 3:
-            case 4:
-                identity = reader.ReadDecryptString();
-                break;
-            default:
-                FAIL();
+    std::function<void(wz::WZReader&, uint32_t)> parse;
+    parse = [&parse](wz ::WZReader& _reader, uint32_t offset) -> void {
+        _reader.SetPosition(offset);
+        auto entry_count = _reader.ReadCompressedInt();
+        for (auto i = 0u; i < entry_count; i++) {
+            auto type = _reader.Read<uint8_t>();
+            std::string identity = "";
+            switch (type) {
+                case 1:
+                case 2:
+                    identity = _reader.ReadDecryptStringAt(
+                        _reader.GetHeader().size + 1 + _reader.Read<int32_t>());
+                    break;
+                case 3:
+                case 4:
+                    identity = _reader.ReadDecryptString();
+                    break;
+                default:
+                    FAIL();
+            }
+            auto size = _reader.ReadCompressedInt();
+            auto sum32 = _reader.ReadCompressedInt();
+            auto offset = _reader.ReadNodeOffset();
+            printf("identity:%s, type:%d, size: %d, sum32: %d, offset:%d\n",
+                   identity.c_str(), type, size, sum32, offset);
+            if (type == 4) {
+                auto position = _reader.GetPosition();
+                _reader.SetPosition(offset);
+                auto nodetype = _reader.TransitString(offset);
+                printf("NodeType: %s\n", nodetype.c_str());
+                _reader.SetPosition(position);
+            } else if (type == 3) {
+                auto position = _reader.GetPosition();
+                parse(_reader, offset);
+                _reader.SetPosition(position);
+            }
         }
-        auto size = reader.ReadCompressedInt();
-        auto sum32 = reader.ReadCompressedInt();
-        auto offset = reader.ReadNodeOffset();
-        printf("identity:%s, type:%d, size: %d, sum32: %d, offset:%d\n",
-               identity.c_str(), type, size, sum32, offset);
-    }
+    };
+    parse(reader, reader.GetPosition());
 }
