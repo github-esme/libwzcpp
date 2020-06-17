@@ -13,10 +13,10 @@ class WZReader {
    public:
     class WZHeader {
        public:
-        WZHeader() : signature(0), datasize(0), headersize(0), copyright("") {}
+        WZHeader() : signature(0), datasize(0), size(0), copyright("") {}
         uint16_t signature;
         uint64_t datasize;
-        uint32_t headersize;
+        uint32_t size;
         std::string copyright;
     };
     explicit WZReader(const std::string &path, const WZKey &wzkey);
@@ -59,6 +59,8 @@ class WZReader {
     auto ReadDecryptStringAt(size_t soffset) -> std::string;
     auto TransitString(size_t offset) -> std::string;
     auto ReadCompressedInt() -> int32_t;
+    auto ReadCompressedLong() -> int64_t;
+    auto ReadNodeOffset() -> int32_t;
 
     auto SetPosition(uint64_t position) -> bool;
     auto GetPosition() -> uint64_t { return _position; }
@@ -81,12 +83,14 @@ class WZReader {
     WZHeader _header;
     // Version number of wz file
     uint32_t _version;
+    uint32_t _version_factor;
     // Key for wz decryption
     WZKey _key;
 
     auto LoadHeader() -> void;
     auto LoadVersion() -> void;
     auto CalculateVersionHash(std::string version) -> uint16_t;
+    auto CalculateVersionFactor(std::string version) -> uint16_t;
     auto XorDecrypt(uint8_t *buffer, uint8_t *key1, size_t size, bool wide)
         -> void;
     auto DecryptUnicodeString(uint8_t *orignal, size_t size) -> std::string;

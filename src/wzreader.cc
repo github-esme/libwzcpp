@@ -70,7 +70,7 @@ auto WZReader::Valid() -> bool {
     try {
         LoadHeader();
         LoadVersion();
-        return _header.headersize != 0 && _version != 0;
+        return _header.size != 0 && _version != 0;
     } catch (...) {
     }
     return false;
@@ -89,6 +89,27 @@ auto WZReader::ReadCompressedInt() -> int32_t {
         return Read<int32_t>();
     }
     return value;
+}
+
+auto WZReader::ReadCompressedLong() -> int64_t {
+    auto value = Read<int8_t>();
+    if (value == SCHAR_MIN) {
+        return Read<int64_t>();
+    }
+    return value;
+}
+
+auto WZReader::ReadNodeOffset() -> int32_t {
+    auto factor = _version_factor;
+    uint32_t offset =
+        static_cast<uint32_t>(GetPosition() - _header.size) ^ UINT_MAX;
+    offset *= factor;
+    offset -= 0x581c3f6d;
+    offset = wz::utils::bits::rol<uint32_t>(offset, offset & 0x1f);
+    auto value = Read<uint32_t>();
+    offset ^= value;
+    offset += _header.size * 2;
+    return offset;
 }
 
 auto WZReader::TransitString(size_t offset) -> std::string {
@@ -156,31 +177,37 @@ auto WZReader::LoadHeader() -> void {
     SetPosition(0);
     _header.signature = Read<uint32_t>();
     _header.datasize = Read<uint64_t>();
-    _header.headersize = Read<uint32_t>();
-    _header.copyright =
-        ReadRawFixedSizeString(_header.headersize - sizeof(uint32_t) -
-                               sizeof(uint64_t) - sizeof(uint32_t));
+    _header.size = Read<uint32_t>();
+    _header.copyright = ReadRawFixedSizeString(
+        _header.size - sizeof(uint32_t) - sizeof(uint64_t) - sizeof(uint32_t));
     if (cur_position > 0) SetPosition(cur_position);
 }
 
 auto WZReader::LoadVersion() -> void {
-    SetPosition(_header.headersize);
+    SetPosition(_header.size);
     auto version_hash = Read<uint16_t>();
     for (auto version = 0; version < 1000; version++) {
         std::string str_version = std::to_string(version);
         if (version_hash == CalculateVersionHash(str_version)) {
             _version = version;
+            _version_factor = CalculateVersionFactor(str_version);
             break;
         }
     }
 }
 
-auto WZReader::CalculateVersionHash(std::string version) -> uint16_t {
+auto WZReader::CalculateVersionFactor(std::string version) -> uint16_t {
     if (!utils::string::IsNumber(version)) return 0;
     uint16_t factor = 0u;
     for (auto i = 0u; i < version.length(); i++) {
         factor = ((factor * 0x20) + static_cast<uint16_t>(version[i])) + 1;
     }
+    return factor;
+}
+
+auto WZReader::CalculateVersionHash(std::string version) -> uint16_t {
+    if (!utils::string::IsNumber(version)) return 0;
+    uint16_t factor = CalculateVersionFactor(version);
     uint16_t n1 = (factor >> 0x18) & 0xff;
     uint16_t n2 = (factor >> 0x10) & 0xff;
     uint16_t n3 = (factor >> 0x8) & 0xff;
@@ -190,31 +217,30 @@ auto WZReader::CalculateVersionHash(std::string version) -> uint16_t {
 
 auto WZReader::XorDecrypt(uint8_t *buffer, uint8_t *origin, size_t size,
                           bool wide) -> void {
-    uint16_t wmask[8] = {0xAAAA, 0xAAAB, 0xAAAC, 0xAAAD,
-                         0xAAAE, 0xAAAF, 0xAAB0, 0xAAB1};
-    uint8_t mask[16] = {0xAA, 0xAB, 0xAC, 0xAD, 0xAF, 0xB0, 0xB1, 0xB2,
-                        0xB3, 0xB4, 0xB5, 0xB6, 0xB7, 0xB8, 0xB9};
     auto i = 0u;
 #ifdef __SSE__
+    __m128i amask =
+        _mm_setr_epi8(0xAA, 0xAB, 0xAC, 0xAD, 0xAE, 0xAF, 0xB0, 0xB1, 0xB2,
+                      0xB3, 0xB4, 0xB5, 0xB6, 0xB7, 0xB8, 0xB9);
+    __m128i aplus = _mm_set1_epi8(0x10);
 
+    __m128i wmask = _mm_setr_epi16(0xAAAA, 0xAAAB, 0xAAAC, 0xAAAD, 0xAAAE,
+                                   0xAAAF, 0xAAB0, 0xAAB1);
+    __m128i wplus = _mm_set1_epi16(0x0008);
     auto m1 = reinterpret_cast<__m128i *>(buffer);
     auto m2 = reinterpret_cast<const __m128i *>(origin);
     _key[16];
     auto m3 = reinterpret_cast<__m128i *>(_key.GetKey().data());
-    auto m4 = wide ? reinterpret_cast<__m128i *>(wmask)
-                   : reinterpret_cast<__m128i *>(mask);
+    auto m4 = wide ? wmask : amask;
     for (i = 0u; i<size>> 4; ++i) {
         _key[i * 16];
         m3 = reinterpret_cast<__m128i *>(_key.GetKey().data());
         _mm_storeu_si128(m1 + i, _mm_xor_si128(_mm_loadu_si128(m2 + i),
                                                _mm_loadu_si128(m3 + i)));
-        // increase factor QQ
-        if (i + 1 < size >> 4) {
-            for (auto j = 0; j < 8; j++) {
-                wmask[j] += 1;
-                mask[j] += 1;
-            }
-        }
+        _mm_storeu_si128(m1 + i, _mm_xor_si128(_mm_loadu_si128(m1 + i),
+                                               m4));
+        amask = _mm_add_epi8(amask, aplus);
+        wmask = _mm_add_epi8(wmask, wplus);
     }
 #endif
     i *= 16;
