@@ -17,6 +17,7 @@
 #endif
 #include "utils.h"
 #include "wzerrors.h"
+#include "wznode.h"
 
 namespace wz {
 
@@ -147,7 +148,6 @@ auto WZReader::ReadDecryptStringAt(size_t soffset) -> std::string { return ""; }
 
 auto WZReader::DecryptUnicodeString(uint8_t *orignal, size_t size)
     -> std::string {
-    uint8_t factor = 0xAAAA;
     std::u16string str;
     if (size / 2 >= str.max_size()) return "";
     // For multithreaded
@@ -238,8 +238,7 @@ auto WZReader::XorDecrypt(uint8_t *buffer, uint8_t *origin, size_t size,
         m3 = reinterpret_cast<__m128i *>(_key.GetKey().data());
         _mm_storeu_si128(m1 + i, _mm_xor_si128(_mm_loadu_si128(m2 + i),
                                                _mm_loadu_si128(m3 + i)));
-        _mm_storeu_si128(m1 + i, _mm_xor_si128(_mm_loadu_si128(m1 + i),
-                                               m4));
+        _mm_storeu_si128(m1 + i, _mm_xor_si128(_mm_loadu_si128(m1 + i), m4));
         amask = _mm_add_epi8(amask, aplus);
         wmask = _mm_add_epi8(wmask, wplus);
     }
@@ -263,5 +262,23 @@ auto WZReader::XorDecrypt(uint8_t *buffer, uint8_t *origin, size_t size,
         }
     }
 }
+
+auto WZReader::GetNodeTypeByString(const std::string &str) -> WZNodeType {
+    if (str == "Property") {
+        return WZNodeType::kProperty;
+    } else if (str == "Shape2D#Convex2D") {
+        return WZNodeType::kConvex;
+    } else if (str == "Shape2D#Vector2D") {
+        return WZNodeType::kVector;
+    } else if (str == "Sound_DX8") {
+        return WZNodeType::kSound;
+    } else if (str == "UOL") {
+        return WZNodeType::kUOL;
+    } else if (str == "Canvas") {
+        return WZNodeType::kConvex;
+    } else {
+        return WZNodeType::kNone;
+    }
+};
 
 }  // namespace wz

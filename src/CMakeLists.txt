@@ -4,6 +4,7 @@ add_library(wz STATIC
     wzfile.cc
     wzreader.cc
     utils.cc
+    wznode.cc
     wzkey.cc
 )
 target_link_libraries(

@@ -7,8 +7,11 @@
 #include <string>
 
 #include "wzkey.h"
+#include "wztypes.h"
 
 namespace wz {
+
+class WZNode;
 class WZReader {
    public:
     class WZHeader {
@@ -65,6 +68,8 @@ class WZReader {
     auto SetPosition(uint64_t position) -> bool;
     auto GetPosition() -> uint64_t { return _position; }
     auto GetVersion() -> uint32_t { return _version; }
+    auto GetLock() -> boost::mutex & { return _readlock; }
+    auto GetNodeTypeByString(const std::string &str) -> WZNodeType;
 
    private:
     // For lock while reading nodes
@@ -95,7 +100,7 @@ class WZReader {
         -> void;
     auto DecryptUnicodeString(uint8_t *orignal, size_t size) -> std::string;
     auto DecryptASCIIString(uint8_t *orignal, size_t size) -> std::string;
-};
+};  // namespace wz
 
 }  // namespace wz
 
