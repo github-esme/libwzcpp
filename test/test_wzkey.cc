@@ -1,0 +1,28 @@
+#include <gmock/gmock.h>
+#include <gtest/gtest.h>
+
+#include <boost/container/vector.hpp>
+#include <cinttypes>
+#include <cstdlib>
+#include <vector>
+
+#include "wzkey.h"
+#include "wzreader.h"
+
+using namespace testing;
+
+TEST(WZ_TEST, WZ_KEY_EXTEND) {
+    boost::container::vector<uint8_t> key = {
+        0x13, 0x00, 0x00, 0x00, 0x08, 0x00, 0x00, 0x00, 0x06, 0x00, 0x00,
+        0x00, 0xb4, 0x00, 0x00, 0x00, 0x1b, 0x00, 0x00, 0x00, 0x0f, 0x00,
+        0x00, 0x00, 0x33, 0x00, 0x00, 0x00, 0x52, 0x00, 0x00, 0x00};
+    boost::container::vector<uint8_t> iv = {0xb9, 0x7d, 0x63, 0xe9};
+    wz::WZKey wzkey(key, iv);
+    wzkey[2];
+    auto xorkey = wzkey.GetKey();
+    EXPECT_EQ(xorkey[0], 0xab);
+    EXPECT_EQ(xorkey[256], 0x75);
+    EXPECT_EQ(xorkey[589], 0xae);
+    EXPECT_EQ(xorkey[999], 0xd5);
+    EXPECT_EQ(xorkey[0x1000-1], 0x5b);
+}
