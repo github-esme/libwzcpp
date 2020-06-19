@@ -14,7 +14,7 @@ namespace wz {
 class WZNode;
 class WZReader {
    public:
-    class WZHeader {
+       class WZHeader {
        public:
         WZHeader() : signature(0), datasize(0), size(0), copyright("") {}
         uint16_t signature;
@@ -58,8 +58,8 @@ class WZReader {
 
     auto ReadRawNullTerminatedString() -> std::string;
     auto ReadRawFixedSizeString(uint32_t size) -> std::string;
-    auto ReadDecryptString() -> std::string;
-    auto ReadDecryptStringAt(size_t soffset) -> std::string;
+    auto ReadStringXoredWithFactor() -> std::string;
+    auto ReadStringXored() -> std::string;
     auto TransitString(size_t offset) -> std::string;
     auto ReadCompressedInt() -> int32_t;
     auto ReadCompressedLong() -> int64_t;
@@ -91,13 +91,13 @@ class WZReader {
     uint32_t _version_factor;
     // Key for wz decryption
     WZKey _key;
-
     auto LoadHeader() -> void;
     auto LoadVersion() -> void;
     auto CalculateVersionHash(std::string version) -> uint16_t;
     auto CalculateVersionFactor(std::string version) -> uint16_t;
-    auto XorDecrypt(uint8_t *buffer, uint8_t *key1, size_t size, bool wide)
+    auto DecryptString(uint8_t *buffer, uint8_t *key1, size_t size, bool wide)
         -> void;
+    auto Xor(uint8_t *buffer, size_t size) -> void;
     auto DecryptUnicodeString(uint8_t *orignal, size_t size) -> std::string;
     auto DecryptASCIIString(uint8_t *orignal, size_t size) -> std::string;
 };  // namespace wz

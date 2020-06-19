@@ -38,7 +38,7 @@ TEST(WZ_TEST, WZREADER_READSTRING) {
     reader.GetVersion();
     reader.ReadCompressedInt();
     reader.Read<int8_t>();
-    auto s = reader.ReadDecryptString();
+    auto s = reader.ReadStringXoredWithFactor();
     ASSERT_EQ(s, "StandardPDD.img");
 }
 
@@ -50,7 +50,7 @@ TEST(WZ_TEST, WZREADER_PARSE_ROOT) {
     boost::container::vector<uint8_t> iv = {0, 0, 0, 0};
     wz::WZKey wzkey(key, iv);
     auto reader = boost::shared_ptr<wz::WZReader>(
-        new wz::WZReader("../../wz/Character.wz", wzkey));
+        new wz::WZReader("../../wz/Etc.wz", wzkey));
     reader->Valid();
     reader->GetVersion();
     wz::WZNode root(wz::WZNodeType::kDirectory, "/", reader->GetPosition(),

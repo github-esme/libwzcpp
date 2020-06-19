@@ -19,7 +19,7 @@ class WZNode : boost::enable_shared_from_this<WZNode> {
                     const boost::shared_ptr<WZReader>& reader)
         : WZNode(type, identity, 0, 0, offset, reader) {}
     explicit WZNode(WZNodeType type, std::string identity, uint32_t size,
-                    uint32_t sum32, uint64_t offset,
+                    uint32_t checksum, uint64_t offset,
                     const boost::shared_ptr<WZReader>& reader)
         : _parsed(false),
           _node_type(type),
@@ -35,11 +35,11 @@ class WZNode : boost::enable_shared_from_this<WZNode> {
     auto GetNodeType() -> WZNodeType { return _node_type; }
     auto GetSize() -> uint32_t { return _size; }
     auto GetOffset() -> uint32_t { return _offset; }
-    auto GetSum32() -> uint32_t { return _sum32; }
+    auto GetChecksum() -> uint32_t { return _checksum; }
     auto GetReader() -> boost::shared_ptr<WZReader>& { return _reader; }
     auto GetParent() -> boost::shared_ptr<WZNode>& { return _parent; }
     auto SetOffset(uint32_t offset) -> void { _offset = offset; }
-    auto SetSum32(uint32_t sum32) -> void { _sum32 = sum32; }
+    auto SetChecksum(uint32_t checksum) -> void { _checksum = checksum; }
     auto SetIdentity(std::string identity) -> void { _identity = identity; }
     auto SetParent(boost::shared_ptr<WZNode>& parent) -> void {
         _parent = parent;
@@ -53,7 +53,7 @@ class WZNode : boost::enable_shared_from_this<WZNode> {
     WZNodeType _node_type;
     std::string _identity;
     uint32_t _offset;
-    uint32_t _sum32;
+    uint32_t _checksum;
     uint32_t _size;
     WZNodes _nodes;
     boost::shared_ptr<WZNode> _parent;

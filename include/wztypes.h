@@ -19,6 +19,7 @@ enum class WZNodeType : uint32_t {
     kConvex,
     kSound,
     kUOL,
+    kLua
 };
 typedef boost::tuple<int32_t, int32_t> Vector2i;
 typedef boost::container::map<std::string, WZNode> WZNodes;

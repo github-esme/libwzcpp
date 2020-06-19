@@ -12,26 +12,33 @@ auto WZNode::ExpandDirectory() -> bool {
         uint32_t nodes_count = _reader->ReadCompressedInt();
         for (auto i = 0u; i < nodes_count; i++) {
             std::string identity = "";
-            auto type = static_cast<WZNodeType>(_reader->Read<int8_t>());
-            switch (type) {
+            auto node_type = static_cast<WZNodeType>(_reader->Read<int8_t>());
+            auto block_size = 0;
+            auto block_checksum = 0;
+            auto block_offset = 0;
+            switch (node_type) {
                 case WZNodeType::kDirectoryWithOffset:
                 case WZNodeType::kImageWithOffset:
-                    identity = _reader->ReadDecryptStringAt(
-                        _reader->GetHeader().size + 1 +
-                        _reader->Read<int32_t>());
+                    _reader->SetPosition(_reader->GetHeader().size +
+                                         _reader->Read<uint32_t>());
+                    node_type =
+                        static_cast<WZNodeType>(_reader->Read<int8_t>());
+                    assert(node_type == WZNodeType::kDirectory ||
+                           node_type == WZNodeType::kImage);
+                    identity = _reader->ReadStringXoredWithFactor();
                     break;
-                case WZNodeType::kImage:
                 case WZNodeType::kDirectory:
-                    identity = _reader->ReadDecryptString();
+                case WZNodeType::kImage:
+                    identity = _reader->ReadStringXoredWithFactor();
                     break;
                 default:
                     return false;
             }
-            auto size = _reader->ReadCompressedInt();
-            auto sum32 = _reader->ReadCompressedInt();
-            auto offset = _reader->ReadNodeOffset();
-            nodes.emplace_back(
-                WZNode(type, identity, size, sum32, offset, _reader));
+            block_size = _reader->ReadCompressedInt();
+            block_checksum = _reader->ReadCompressedInt();
+            block_offset = _reader->ReadNodeOffset();
+            nodes.emplace_back(WZNode(node_type, identity, block_size,
+                                      block_checksum, block_offset, _reader));
         }
     }
     for (auto& node : nodes) {
@@ -39,7 +46,7 @@ auto WZNode::ExpandDirectory() -> bool {
                   << " type: " << static_cast<uint32_t>(node.GetNodeType())
                   << std::endl;
         auto iterator = _nodes.emplace(node.GetIdentity(), node);
-        if ((static_cast<uint32_t>(node.GetNodeType()) % 2) > 0)
+        if (node.GetNodeType() == WZNodeType::kDirectory)
             iterator.first->second.ExpandDirectory();
         else
             iterator.first->second.ExpandNodes();
@@ -49,15 +56,15 @@ auto WZNode::ExpandDirectory() -> bool {
 
 auto WZNode::ExpandNodes() -> bool {
     _reader->SetPosition(_offset);
-    auto name = _reader->TransitString(_offset);
-    auto type = _reader->GetNodeTypeByString(name);
-    std::cout << "PropType: " << type << std::endl;
-    switch (type) {
-        case WZNodeType::kProperty:
-            break;
-        default:
-            break;
-    }
+    auto propname = _reader->TransitString(_offset);
+    auto type = _reader->GetNodeTypeByString(propname);
+    std::cout << "propname = " << propname << std::endl;
+    // switch (type) {
+    //     case WZNodeType::kProperty:
+    //         break;
+    //     default:
+    //         break;
+    // }
     return true;
 }
 

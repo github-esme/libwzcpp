@@ -115,14 +115,15 @@ auto WZReader::ReadNodeOffset() -> int32_t {
 
 auto WZReader::TransitString(size_t offset) -> std::string {
     auto type = Read<uint8_t>();
+    auto offset2 = 0;
     switch (type) {
         case 0x0:
         case 0x73:
-            return ReadDecryptString();
+            return ReadStringXoredWithFactor();
             break;
         case 1:
         case 0x1B:
-            return ReadDecryptStringAt(offset + Read<uint32_t>());
+            return ReadStringXored();
         default:
             printf("[Error] Unknown Transit String Type: %d\n", type);
             return "";
@@ -130,7 +131,7 @@ auto WZReader::TransitString(size_t offset) -> std::string {
     }
 }
 
-auto WZReader::ReadDecryptString() -> std::string {
+auto WZReader::ReadStringXoredWithFactor() -> std::string {
     auto size = Read<int8_t>();
     if (size > 0) {
         // Unicode String
@@ -144,7 +145,17 @@ auto WZReader::ReadDecryptString() -> std::string {
     }
 }
 
-auto WZReader::ReadDecryptStringAt(size_t soffset) -> std::string { return ""; }
+auto WZReader::ReadStringXored() -> std::string {
+    std::string str;
+    auto size = ReadCompressedInt();
+    if (size >= str.max_size()) return "";
+    auto buffer = ReadArray<uint8_t>(size);
+    _key[size - 1];
+    Xor(buffer.data(), size);
+    str.append(buffer.data(), buffer.data() + size);
+    auto x = 1;
+    return str;
+}
 
 auto WZReader::DecryptUnicodeString(uint8_t *orignal, size_t size)
     -> std::string {
@@ -155,7 +166,7 @@ auto WZReader::DecryptUnicodeString(uint8_t *orignal, size_t size)
     buffer.reserve(size << 1);
     buffer.resize(size << 1);
     memcpy(buffer.data(), orignal, size << 1);
-    XorDecrypt(buffer.data(), orignal, size << 1, true);
+    DecryptString(buffer.data(), orignal, size << 1, true);
     str.append(buffer.data(), buffer.data() + size);
     return "";
 }
@@ -168,7 +179,7 @@ auto WZReader::DecryptASCIIString(uint8_t *orignal, size_t size)
     thread_local boost::container::vector<uint8_t> buffer;
     buffer.reserve(size);
     buffer.resize(size);
-    XorDecrypt(buffer.data(), orignal, size, false);
+    DecryptString(buffer.data(), orignal, size, false);
     str.append(buffer.data(), buffer.data() + size);
     return str;
 }
@@ -216,8 +227,8 @@ auto WZReader::CalculateVersionHash(std::string version) -> uint16_t {
     return ~(n1 ^ n2 ^ n3 ^ n4) & 0xff;
 }
 
-auto WZReader::XorDecrypt(uint8_t *buffer, uint8_t *origin, size_t size,
-                          bool wide) -> void {
+auto WZReader::DecryptString(uint8_t *buffer, uint8_t *origin, size_t size,
+                             bool wide) -> void {
     auto i = 0u;
 #ifdef __SSE__
     __m128i amask =
@@ -280,5 +291,23 @@ auto WZReader::GetNodeTypeByString(const std::string &str) -> WZNodeType {
         return WZNodeType::kNone;
     }
 };
+
+auto WZReader::Xor(uint8_t *buffer, size_t size) -> void {
+    auto i = 0u;
+#ifdef __SSE__
+    auto m1 = reinterpret_cast<__m128i *>(buffer);
+    auto m2 = reinterpret_cast<__m128i *>(WZKey::kLuaKey.GetAesKey().data());
+    for (i = 0u; i<size>> 4; ++i) {
+        WZKey::kLuaKey[(i + 1) * 16];
+        m2 = reinterpret_cast<__m128i *>(WZKey::kLuaKey.GetKey().data());
+        _mm_storeu_si128(m1 + i, _mm_xor_si128(_mm_loadu_si128(m1 + i),
+                                               _mm_loadu_si128(m2 + i)));
+    }
+#endif
+    i *= 16;
+    for (; i < size; i += 1) {
+        buffer[i] = buffer[i] ^ WZKey::kLuaKey[i];
+    }
+}
 
 }  // namespace wz
