@@ -274,24 +274,6 @@ auto WZReader::DecryptString(uint8_t *buffer, uint8_t *origin, size_t size,
     }
 }
 
-auto WZReader::GetNodeTypeByString(const std::string &str) -> WZNodeType {
-    if (str == "Property") {
-        return WZNodeType::kProperty;
-    } else if (str == "Shape2D#Convex2D") {
-        return WZNodeType::kConvex;
-    } else if (str == "Shape2D#Vector2D") {
-        return WZNodeType::kVector;
-    } else if (str == "Sound_DX8") {
-        return WZNodeType::kSound;
-    } else if (str == "UOL") {
-        return WZNodeType::kUOL;
-    } else if (str == "Canvas") {
-        return WZNodeType::kConvex;
-    } else {
-        return WZNodeType::kNone;
-    }
-};
-
 auto WZReader::Xor(uint8_t *buffer, size_t size) -> void {
     auto i = 0u;
 #ifdef __SSE__

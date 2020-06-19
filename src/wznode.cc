@@ -16,24 +16,29 @@ auto WZNode::ExpandDirectory() -> bool {
             auto block_size = 0;
             auto block_checksum = 0;
             auto block_offset = 0;
+            auto current_offset = 0;
             switch (node_type) {
                 case WZNodeType::kDirectoryWithOffset:
-                case WZNodeType::kImageWithOffset:
+                case WZNodeType::kImageWithOffset: {
+                    auto offset_jmp = _reader->Read<uint32_t>();
+                    current_offset = _reader->GetPosition();
                     _reader->SetPosition(_reader->GetHeader().size +
-                                         _reader->Read<uint32_t>());
+                                         offset_jmp);
                     node_type =
                         static_cast<WZNodeType>(_reader->Read<int8_t>());
                     assert(node_type == WZNodeType::kDirectory ||
                            node_type == WZNodeType::kImage);
                     identity = _reader->ReadStringXoredWithFactor();
-                    break;
+                }
                 case WZNodeType::kDirectory:
                 case WZNodeType::kImage:
                     identity = _reader->ReadStringXoredWithFactor();
+                    current_offset = _reader->GetPosition();
                     break;
                 default:
                     return false;
             }
+            _reader->SetPosition(current_offset);
             block_size = _reader->ReadCompressedInt();
             block_checksum = _reader->ReadCompressedInt();
             block_offset = _reader->ReadNodeOffset();
@@ -57,15 +62,37 @@ auto WZNode::ExpandDirectory() -> bool {
 auto WZNode::ExpandNodes() -> bool {
     _reader->SetPosition(_offset);
     auto propname = _reader->TransitString(_offset);
-    auto type = _reader->GetNodeTypeByString(propname);
+    auto type = GetNodeTypeByString(propname);
     std::cout << "propname = " << propname << std::endl;
-    // switch (type) {
-    //     case WZNodeType::kProperty:
-    //         break;
-    //     default:
-    //         break;
-    // }
+    switch (type) {
+        case WZNodeType::kProperty:
+            break;
+        case WZNodeType::kLua:
+
+        default:
+            break;
+    }
     return true;
 }
+
+// auto WZNode::AddLuaProperty(std::string content, uint32_t offset) -> void {}
+
+auto WZNode::GetNodeTypeByString(const std::string& str) -> WZNodeType {
+    if (str == "Property") {
+        return WZNodeType::kProperty;
+    } else if (str == "Shape2D#Convex2D") {
+        return WZNodeType::kConvex;
+    } else if (str == "Shape2D#Vector2D") {
+        return WZNodeType::kVector;
+    } else if (str == "Sound_DX8") {
+        return WZNodeType::kSound;
+    } else if (str == "UOL") {
+        return WZNodeType::kUOL;
+    } else if (str == "Canvas") {
+        return WZNodeType::kConvex;
+    } else {
+        return WZNodeType::kLua;
+    }
+};
 
 }  // namespace wz

@@ -60,6 +60,7 @@ class WZNode : boost::enable_shared_from_this<WZNode> {
     boost::shared_ptr<WZReader> _reader;
 
     auto ExpandProperty(uint32_t offset) -> bool;
+    auto GetNodeTypeByString(const std::string& str) -> WZNodeType;
 };
 
 }  // namespace wz

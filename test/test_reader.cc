@@ -33,7 +33,7 @@ TEST(WZ_TEST, WZREADER_READSTRING) {
         0x00, 0x00, 0x33, 0x00, 0x00, 0x00, 0x52, 0x00, 0x00, 0x00};
     boost::container::vector<uint8_t> iv = {0, 0, 0, 0};
     wz::WZKey wzkey(key, iv);
-    wz::WZReader reader("../../wz/Base.wz", wzkey);
+    wz::WZReader reader("../../wz/Character.wz", wzkey);
     reader.Valid();
     reader.GetVersion();
     reader.ReadCompressedInt();

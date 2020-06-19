@@ -14,7 +14,7 @@ namespace wz {
 class WZNode;
 class WZReader {
    public:
-       class WZHeader {
+    class WZHeader {
        public:
         WZHeader() : signature(0), datasize(0), size(0), copyright("") {}
         uint16_t signature;
