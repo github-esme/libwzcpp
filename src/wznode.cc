@@ -66,13 +66,24 @@ auto WZNode::ExpandNodes() -> bool {
     std::cout << "propname = " << propname << std::endl;
     switch (type) {
         case WZNodeType::kProperty:
+            return ExpandProperty();
             break;
         case WZNodeType::kLua:
-
+            break;
         default:
             break;
     }
     return true;
+}
+
+auto WZNode::ExpandProperty() -> bool {
+    assert(_reader->Read<uint16_t>() == 0);
+    auto count = _reader->ReadCompressedInt();
+    for (int i = 0; i < count; i++) {
+        auto identity = _reader->TransitString(_offset);
+        auto type = _reader->Read<int8_t>();
+        int x = 1;
+    }
 }
 
 // auto WZNode::AddLuaProperty(std::string content, uint32_t offset) -> void {}
