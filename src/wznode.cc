@@ -66,7 +66,7 @@ auto WZNode::ExpandNodes() -> bool {
     std::cout << "propname = " << propname << std::endl;
     switch (type) {
         case WZNodeType::kProperty:
-            return ExpandProperty();
+            ///return ExpandProperty();
             break;
         case WZNodeType::kLua:
             break;

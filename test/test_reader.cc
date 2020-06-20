@@ -6,18 +6,14 @@
 #include <cstdlib>
 #include <vector>
 
+#include "wzkey.h"
 #include "wznode.h"
 #include "wzreader.h"
 
 using namespace testing;
 
 TEST(WZ_TEST, WZREADER_VALID) {
-    boost::container::vector<uint8_t> key = {
-        0x13, 0x00, 0x00, 0x00, 0x08, 0x00, 0x00, 0x00, 0x06, 0x00, 0x00,
-        0x00, 0xb4, 0x00, 0x00, 0x00, 0x1b, 0x00, 0x00, 0x00, 0x0f, 0x00,
-        0x00, 0x00, 0x33, 0x00, 0x00, 0x00, 0x52, 0x00, 0x00, 0x00};
-    boost::container::vector<uint8_t> iv = {0, 0, 0, 0};
-    wz::WZKey wzkey(key, iv);
+    wz::WZKey wzkey(wz::WZKey::kDefaultAESKey, wz::WZKey::kZeroIV);
     wz::WZReader reader("../../wz/Base.wz", wzkey);
     reader.Valid();
     auto header = reader.GetHeader();
@@ -27,13 +23,8 @@ TEST(WZ_TEST, WZREADER_VALID) {
 }
 
 TEST(WZ_TEST, WZREADER_READSTRING) {
-    boost::container::vector<uint8_t> key = {
-        0x13, 0x00, 0x00, 0x00, 0x08, 0x00, 0x00, 0x00, 0x06, 0x00, 0x00,
-        0x00, 0xb4, 0x00, 0x00, 0x00, 0x1b, 0x00, 0x00, 0x00, 0x0f, 0x00,
-        0x00, 0x00, 0x33, 0x00, 0x00, 0x00, 0x52, 0x00, 0x00, 0x00};
-    boost::container::vector<uint8_t> iv = {0, 0, 0, 0};
-    wz::WZKey wzkey(key, iv);
-    wz::WZReader reader("../../wz/Character.wz", wzkey);
+    wz::WZKey wzkey(wz::WZKey::kDefaultAESKey, wz::WZKey::kZeroIV);
+    wz::WZReader reader("../../wz/Etc.wz", wzkey);
     reader.Valid();
     reader.GetVersion();
     reader.ReadCompressedInt();
@@ -43,12 +34,7 @@ TEST(WZ_TEST, WZREADER_READSTRING) {
 }
 
 TEST(WZ_TEST, WZREADER_PARSE_ROOT) {
-    boost::container::vector<uint8_t> key = {
-        0x13, 0x00, 0x00, 0x00, 0x08, 0x00, 0x00, 0x00, 0x06, 0x00, 0x00,
-        0x00, 0xb4, 0x00, 0x00, 0x00, 0x1b, 0x00, 0x00, 0x00, 0x0f, 0x00,
-        0x00, 0x00, 0x33, 0x00, 0x00, 0x00, 0x52, 0x00, 0x00, 0x00};
-    boost::container::vector<uint8_t> iv = {0, 0, 0, 0};
-    wz::WZKey wzkey(key, iv);
+    wz::WZKey wzkey(wz::WZKey::kDefaultAESKey, wz::WZKey::kZeroIV);
     auto reader = boost::shared_ptr<wz::WZReader>(
         new wz::WZReader("../../wz/Etc.wz", wzkey));
     reader->Valid();
