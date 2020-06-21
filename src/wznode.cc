@@ -1,74 +1,99 @@
 #include "wznode.h"
 
+#include <boost/make_shared.hpp>
 #include <iostream>
+
+#include "utils.h"
 namespace wz {
 
 auto WZNode::ExpandDirectory() -> bool {
+    boost::unique_lock<boost::mutex> locked(_reader->GetLock());
+    return ExpandDirectory(_offset);
+}
+
+auto WZNode::ExpandDirectory(uint32_t offset) -> bool {
     if (_node_type != WZNodeType::kDirectory) return false;
     boost::container::vector<WZNode> nodes;
-    {
-        _reader->SetPosition(_offset);
-        boost::unique_lock<boost::mutex> locked(_reader->GetLock());
-        uint32_t nodes_count = _reader->ReadCompressedInt();
-        for (auto i = 0u; i < nodes_count; i++) {
-            std::string identity = "";
-            auto node_type = static_cast<WZNodeType>(_reader->Read<int8_t>());
-            auto block_size = 0;
-            auto block_checksum = 0;
-            auto block_offset = 0;
-            auto current_offset = 0;
-            switch (node_type) {
-                case WZNodeType::kDirectoryWithOffset:
-                case WZNodeType::kImageWithOffset: {
-                    auto offset_jmp = _reader->Read<uint32_t>();
-                    current_offset = _reader->GetPosition();
-                    _reader->SetPosition(_reader->GetHeader().size +
-                                         offset_jmp);
-                    node_type =
-                        static_cast<WZNodeType>(_reader->Read<int8_t>());
-                    assert(node_type == WZNodeType::kDirectory ||
-                           node_type == WZNodeType::kImage);
-                    identity = _reader->ReadStringXoredWithFactor();
-                }
-                case WZNodeType::kDirectory:
-                case WZNodeType::kImage:
-                    identity = _reader->ReadStringXoredWithFactor();
-                    current_offset = _reader->GetPosition();
-                    break;
-                default:
-                    return false;
+    _reader->SetPosition(offset);
+    uint32_t nodes_count = _reader->ReadCompressedInt();
+    for (auto i = 0u; i < nodes_count; i++) {
+        std::string identity = "";
+        auto node_type = static_cast<WZNodeType>(_reader->Read<int8_t>());
+        auto block_size = 0;
+        auto block_checksum = 0;
+        auto block_offset = 0;
+        auto current_offset = 0;
+        switch (node_type) {
+            case WZNodeType::kDirectoryWithOffset:
+            case WZNodeType::kImageWithOffset: {
+                auto offset_jmp = _reader->Read<uint32_t>();
+                current_offset = _reader->GetPosition();
+                _reader->SetPosition(_reader->GetHeader().size + offset_jmp);
+                node_type = static_cast<WZNodeType>(_reader->Read<int8_t>());
+                assert(node_type == WZNodeType::kDirectory ||
+                       node_type == WZNodeType::kImage);
+                identity = _reader->ReadString();
             }
-            _reader->SetPosition(current_offset);
-            block_size = _reader->ReadCompressedInt();
-            block_checksum = _reader->ReadCompressedInt();
-            block_offset = _reader->ReadNodeOffset();
+            case WZNodeType::kDirectory:
+            case WZNodeType::kImage:
+                identity = _reader->ReadString();
+                current_offset = _reader->GetPosition();
+                break;
+            default:
+                return false;
+        }
+        _reader->SetPosition(current_offset);
+        block_size = _reader->ReadCompressedInt();
+        block_checksum = _reader->ReadCompressedInt();
+        block_offset = _reader->ReadNodeOffset();
+        auto& node =
             nodes.emplace_back(WZNode(node_type, identity, block_size,
                                       block_checksum, block_offset, _reader));
-        }
+        node._parent = this;
     }
     for (auto& node : nodes) {
-        std::cout << node.GetIdentity()
-                  << " type: " << static_cast<uint32_t>(node.GetNodeType())
-                  << std::endl;
+        std::cout << node.GetIdentity() << "ExpandRoot: type: "
+                  << static_cast<uint32_t>(node.GetNodeType()) << std::endl;
         auto iterator = _nodes.emplace(node.GetIdentity(), node);
+        _reader->SetPosition(node.GetOffset());
         if (node.GetNodeType() == WZNodeType::kDirectory)
-            iterator.first->second.ExpandDirectory();
+            iterator.first->second.ExpandDirectory(node.GetOffset());
         else
-            iterator.first->second.ExpandNodes();
+            iterator.first->second.ExpandNodes(node.GetOffset());
     }
     return true;
 }
 
 auto WZNode::ExpandNodes() -> bool {
-    _reader->SetPosition(_offset);
-    auto propname = _reader->TransitString(_offset);
+    boost::unique_lock<boost::mutex> locked(_reader->GetLock());
+    return ExpandNodes(_offset);
+}
+
+auto WZNode::ExpandNodes(uint32_t offset_image) -> bool {
+    std::string propname;
+    if (utils::string::EndWith(propname, ".lua")) {
+        propname = _reader->TransitString(offset_image, false);
+    } else {
+        propname = _reader->TransitString(offset_image);
+    }
     auto type = GetNodeTypeByString(propname);
-    std::cout << "propname = " << propname << std::endl;
+    std::cout << _identity << ", propname = " << propname << std::endl;
     switch (type) {
         case WZNodeType::kProperty:
-            ///return ExpandProperty();
-            break;
+            return ExpandProperty(offset_image);
+        case WZNodeType::kCanvas:
+            _node_type = WZNodeType::kCanvas;
+            return ExpandCanvas(offset_image);
+        case WZNodeType::kVector:
+            return ExpandShape2dVector2d(offset_image);
+        case WZNodeType::kConvex:
+            return ExpandShape2dConvex2d(offset_image);
+        case WZNodeType::kUOL:
+            return ExpandUol(offset_image);
         case WZNodeType::kLua:
+            _data_node = true;
+            _data.str = propname;
+            _node_type = WZNodeType::kLua;
             break;
         default:
             break;
@@ -76,17 +101,143 @@ auto WZNode::ExpandNodes() -> bool {
     return true;
 }
 
-auto WZNode::ExpandProperty() -> bool {
-    assert(_reader->Read<uint16_t>() == 0);
+auto WZNode::ExpandProperty(uint32_t image_offset) -> bool {
+    assert(_reader->Read<int16_t>() == 0);
     auto count = _reader->ReadCompressedInt();
     for (int i = 0; i < count; i++) {
-        auto identity = _reader->TransitString(_offset);
-        auto type = _reader->Read<int8_t>();
-        int x = 1;
+        auto identity = _reader->TransitString(image_offset);
+        auto type = _reader->Read<WZDataType>();
+        auto& node =
+            _nodes
+                .emplace(identity, WZNode(WZNodeType::kProperty, identity,
+                                          _reader->GetPosition(), _reader))
+                .first->second;
+        node._parent = this;
+        node._data_type = type;
+        node._reader = _reader;
+        node._data_node = true;
+        std::cout << identity << " datatype:" << (int32_t)type << std::endl;
+        switch (type) {
+            case WZDataType::kNone:
+                break;
+            case WZDataType::kShort:
+            case WZDataType::kUShort:
+                node._data.ireal = _reader->Read<uint16_t>();
+                break;
+            case WZDataType::kInteger:
+            case WZDataType::kUInteger:
+                node._data.ireal = _reader->ReadCompressedInt();
+                std::cout << node._data.ireal << std::endl;
+                break;
+            case WZDataType::kFloat:
+                node._data.dreal = _reader->Read<double>();
+                break;
+            case WZDataType::kString:
+                node._data.str = _reader->TransitString(image_offset);
+                std::cout << "\"" << node._data.str.c_str() << "\""
+                          << std::endl;
+                if (node._data.str.find("140等級製武器") != std::string::npos) {
+                    int x = 1;
+                }
+
+                break;
+            case WZDataType::kLong:
+                node._data.ireal = _reader->Read<uint64_t>();
+                break;
+            case WZDataType::kSub: {
+                node._data_node = false;
+                auto size = _reader->Read<uint32_t>();
+                uint64_t block_end = _reader->GetPosition() + size;
+                node.ExpandNodes(image_offset);
+                _reader->SetPosition(block_end);
+                break;
+            }
+            default:
+                return false;
+                break;
+        }
     }
+    return true;
 }
 
-// auto WZNode::AddLuaProperty(std::string content, uint32_t offset) -> void {}
+auto WZNode::ExpandCanvas(uint32_t image_offset) -> bool {
+    auto unknown = _reader->Read<uint8_t>();
+    auto has_nodes = _reader->Read<uint8_t>();
+    if (has_nodes)
+        if (!ExpandProperty(image_offset)) return false;
+
+    auto width = _reader->ReadCompressedInt();
+    auto height = _reader->ReadCompressedInt();
+    auto format1 = _reader->ReadCompressedInt();
+    auto format2 = _reader->Read<uint8_t>();
+    auto reserved = _reader->Read<uint32_t>();
+    auto size = _reader->Read<uint32_t>();
+    size_t offset_bitmap = _reader->GetPosition();
+    _data_node = true;
+    _node_type = WZNodeType::kCanvas;
+    _data.bitmap.width = width;
+    _data.bitmap.height = height;
+    _data.bitmap.format1 = format1;
+    _data.bitmap.format2 = format2;
+    _data.bitmap.reserved = reserved;
+    _data.bitmap.size = size;
+    _data.bitmap.offset_bitmap = offset_bitmap;
+    auto offset_current = _reader->GetPosition();
+    _reader->SetPosition(offset_current + size);
+    return true;
+}
+
+auto WZNode::ExpandShape2dVector2d(uint32_t image_offset) -> bool {
+    auto x = _reader->ReadCompressedInt();
+    auto y = _reader->ReadCompressedInt();
+    _node_type = WZNodeType::kVector;
+    _data_node = true;
+    _data.vector.x = x;
+    _data.vector.y = y;
+    return true;
+}
+
+auto WZNode::ExpandShape2dConvex2d(uint32_t image_offset) -> bool {
+    _node_type = WZNodeType::kConvex;
+    auto size = _reader->ReadCompressedInt();
+    for (auto i = 0; i < size; i++) {
+        if (!ExpandNodes(image_offset)) return false;
+    }
+    return true;
+}
+
+auto WZNode::ExpandUol(uint32_t image_offset) -> bool {
+    auto v = _reader->Read<int8_t>();
+    auto path = _reader->TransitString(image_offset);
+    std::cout << "uol:" << path;
+    _data_node = true;
+    _node_type = WZNodeType::kUOL;
+    _data.str = path;
+    if (_parent != nullptr) {
+        boost::container::vector<std::string> parts;
+        utils::string::Split(path, parts, "/", true);
+        WZNode* n = _parent;
+        for (auto& part : parts) {
+            if (part == "..") {
+                n = n->_parent;
+            } else {
+                break;
+            }
+        }
+        _data.ireal = n->_offset;
+    }
+    return true;
+}
+
+auto WZNode::ExpandSound(uint32_t image_offset) -> bool {
+    auto unknown = _reader->Read<uint8_t>();
+    assert(unknown == 0);
+    auto size_sound = _reader->ReadCompressedInt();
+    auto length_sound = _reader->ReadCompressedInt();
+    auto offset_end_header = _reader->GetPosition();
+    auto x = 1;
+    return true;
+}
 
 auto WZNode::GetNodeTypeByString(const std::string& str) -> WZNodeType {
     if (str == "Property") {
@@ -100,7 +251,7 @@ auto WZNode::GetNodeTypeByString(const std::string& str) -> WZNodeType {
     } else if (str == "UOL") {
         return WZNodeType::kUOL;
     } else if (str == "Canvas") {
-        return WZNodeType::kConvex;
+        return WZNodeType::kCanvas;
     } else {
         return WZNodeType::kLua;
     }

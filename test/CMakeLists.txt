@@ -10,10 +10,6 @@ target_link_libraries(
         wz 
         GTest::GTest 
         GTest::Main 
-        OpenSSL::Crypto
-        ${Boost_FILESYSTEM_LIBRARY}
-        ${Boost_SYSTEM_LIBRARY}
-        ${Boost_THREAD_LIBRARY}
         )
 
 add_test(NAME test_wz COMMAND test)

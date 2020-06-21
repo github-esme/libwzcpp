@@ -113,17 +113,38 @@ auto WZReader::ReadNodeOffset() -> int32_t {
     return offset;
 }
 
-auto WZReader::TransitString(size_t offset) -> std::string {
+auto WZReader::ReadString(bool factor) -> std::string {
+    if (factor) {
+        return ReadStringXoredWithFactor();
+    } else {
+        return ReadStringXored();
+    }
+}
+
+auto WZReader::ReadString(size_t offset, bool factor) -> std::string {
+    auto rooback = GetPosition();
+    SetPosition(offset);
+    std::string rtn;
+    if (factor) {
+        rtn = ReadStringXoredWithFactor();
+    } else {
+        rtn = ReadStringXored();
+    }
+    SetPosition(rooback);
+    return rtn;
+}
+
+auto WZReader::TransitString(size_t parent_base, bool factor) -> std::string {
     auto type = Read<uint8_t>();
-    auto offset2 = 0;
     switch (type) {
         case 0x0:
         case 0x73:
-            return ReadStringXoredWithFactor();
+            return ReadString(factor);
             break;
         case 1:
-        case 0x1B:
-            return ReadStringXored();
+        case 0x1B: {
+            return ReadString(parent_base + Read<uint32_t>());
+        }
         default:
             printf("[Error] Unknown Transit String Type: %d\n", type);
             return "";
@@ -132,16 +153,18 @@ auto WZReader::TransitString(size_t offset) -> std::string {
 }
 
 auto WZReader::ReadStringXoredWithFactor() -> std::string {
-    auto size = Read<int8_t>();
-    if (size > 0) {
+    auto smallsize = Read<int8_t>();
+    if (smallsize > 0) {
         // Unicode String
-        size = size == SCHAR_MAX ? Read<uint32_t>() : size;
-        if (size >= USHRT_MAX) return "";
+        auto wsize = smallsize == SCHAR_MAX ? Read<uint32_t>() : smallsize;
+        if (wsize >= USHRT_MAX) return "";
+        auto array = ReadArray<uint16_t>(wsize);
+        return DecryptUnicodeString(array.data(), wsize);
 
     } else {
-        size = size == SCHAR_MAX ? Read<uint32_t>() : -size;
-        auto array = ReadArray<uint8_t>(size);
-        return DecryptASCIIString(array.data(), size);
+        auto bigsize = smallsize == SCHAR_MAX ? Read<uint32_t>() : -smallsize;
+        auto array = ReadArray<uint8_t>(bigsize);
+        return DecryptASCIIString(array.data(), bigsize);
     }
 }
 
@@ -157,18 +180,20 @@ auto WZReader::ReadStringXored() -> std::string {
     return str;
 }
 
-auto WZReader::DecryptUnicodeString(uint8_t *orignal, size_t size)
+auto WZReader::DecryptUnicodeString(uint16_t *orignal, size_t size)
     -> std::string {
     std::u16string str;
     if (size / 2 >= str.max_size()) return "";
     // For multithreaded
-    thread_local boost::container::vector<uint8_t> buffer;
-    buffer.reserve(size << 1);
-    buffer.resize(size << 1);
+    thread_local boost::container::vector<uint16_t> buffer;
+    buffer.reserve(size);
+    buffer.resize(size);
     memcpy(buffer.data(), orignal, size << 1);
-    DecryptString(buffer.data(), orignal, size << 1, true);
+    DecryptString((uint8_t *)buffer.data(),
+                  reinterpret_cast<uint8_t *>(orignal), size << 1, true);
     str.append(buffer.data(), buffer.data() + size);
-    return "";
+    auto ptr = str.c_str();
+    return utils::string::ToUTF8(str);
 }
 
 auto WZReader::DecryptASCIIString(uint8_t *orignal, size_t size)
@@ -230,7 +255,7 @@ auto WZReader::CalculateVersionHash(std::string version) -> uint16_t {
 auto WZReader::DecryptString(uint8_t *buffer, uint8_t *origin, size_t size,
                              bool wide) -> void {
     auto i = 0u;
-#ifdef __SSE__
+#ifdef __SSE__X
     __m128i amask =
         _mm_setr_epi8(0xAA, 0xAB, 0xAC, 0xAD, 0xAE, 0xAF, 0xB0, 0xB1, 0xB2,
                       0xB3, 0xB4, 0xB5, 0xB6, 0xB7, 0xB8, 0xB9);
@@ -238,7 +263,8 @@ auto WZReader::DecryptString(uint8_t *buffer, uint8_t *origin, size_t size,
 
     __m128i wmask = _mm_setr_epi16(0xAAAA, 0xAAAB, 0xAAAC, 0xAAAD, 0xAAAE,
                                    0xAAAF, 0xAAB0, 0xAAB1);
-    __m128i wplus = _mm_set1_epi16(0x0008);
+    __m128i wplus = _mm_setr_epi16(0x0008, 0x0008, 0x0008, 0x0008, 0x0008,
+                                   0x0008, 0x0008, 0x0008);
     auto m1 = reinterpret_cast<__m128i *>(buffer);
     auto m2 = reinterpret_cast<const __m128i *>(origin);
     _key[16];
@@ -259,12 +285,8 @@ auto WZReader::DecryptString(uint8_t *buffer, uint8_t *origin, size_t size,
         uint16_t factor = 0xAAAA + (i / 2);
         auto b1 = reinterpret_cast<uint16_t *>(buffer);
         auto b2 = reinterpret_cast<uint16_t *>(origin);
-        _key[i];
-        auto b3 = reinterpret_cast<uint16_t *>(_key.GetKey().data());
-        for (; i < size; i += 2) {
-            _key[i];
-            b3 = reinterpret_cast<uint16_t *>(_key.GetKey().data());
-            b1[i] = b2[i] ^ b3[3] ^ factor;
+        for (; i < size / 2; i += 1) {
+            b1[i] = b2[i] ^ _key[2 * i] ^ (_key[2 * i + 1] << 8) ^ factor++;
         }
     } else {
         uint8_t factor = (0xAA + i);

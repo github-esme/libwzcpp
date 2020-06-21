@@ -58,9 +58,9 @@ class WZReader {
 
     auto ReadRawNullTerminatedString() -> std::string;
     auto ReadRawFixedSizeString(uint32_t size) -> std::string;
-    auto ReadStringXoredWithFactor() -> std::string;
-    auto ReadStringXored() -> std::string;
-    auto TransitString(size_t offset) -> std::string;
+    auto ReadString(size_t offset, bool factor = true) -> std::string;
+    auto ReadString(bool factor = true) -> std::string;
+    auto TransitString(size_t offset, bool factor = true) -> std::string;
     auto ReadCompressedInt() -> int32_t;
     auto ReadCompressedLong() -> int64_t;
     auto ReadNodeOffset() -> int32_t;
@@ -95,10 +95,12 @@ class WZReader {
     auto LoadVersion() -> void;
     auto CalculateVersionHash(std::string version) -> uint16_t;
     auto CalculateVersionFactor(std::string version) -> uint16_t;
+    auto ReadStringXoredWithFactor() -> std::string;
+    auto ReadStringXored() -> std::string;
     auto DecryptString(uint8_t *buffer, uint8_t *key1, size_t size, bool wide)
         -> void;
     auto Xor(uint8_t *buffer, size_t size) -> void;
-    auto DecryptUnicodeString(uint8_t *orignal, size_t size) -> std::string;
+    auto DecryptUnicodeString(uint16_t *orignal, size_t size) -> std::string;
     auto DecryptASCIIString(uint8_t *orignal, size_t size) -> std::string;
 };  // namespace wz
 

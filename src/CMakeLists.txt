@@ -10,4 +10,6 @@ add_library(wz STATIC
 target_link_libraries(
     wz
     ${ZLIB_LIBRARIES}
+    ${Boost_LIBRARIES}
+    OpenSSL::Crypto
 )

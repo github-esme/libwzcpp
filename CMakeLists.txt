@@ -22,7 +22,7 @@ include_directories(ZLIB_INCLUDE_DIRS)
 # boost library
 set(Boost_USE_STATIC_LIBS ON)
 set(Boost_USE_MULTITHREADED ON)
-find_package(Boost 1.71 COMPONENTS thread system log REQUIRED)
+find_package(Boost 1.71 COMPONENTS thread system log locale REQUIRED)
 include_directories(${Boost_INCLUDE_DIRS})
 
 # openssl

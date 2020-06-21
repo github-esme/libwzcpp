@@ -2,6 +2,7 @@
 #include <gtest/gtest.h>
 
 #include <boost/shared_ptr.hpp>
+#include <boost/make_shared.hpp>
 #include <cinttypes>
 #include <cstdlib>
 #include <vector>
@@ -29,7 +30,7 @@ TEST(WZ_TEST, WZREADER_READSTRING) {
     reader.GetVersion();
     reader.ReadCompressedInt();
     reader.Read<int8_t>();
-    auto s = reader.ReadStringXoredWithFactor();
+    auto s = reader.ReadString();
     ASSERT_EQ(s, "StandardPDD.img");
 }
 
@@ -39,7 +40,7 @@ TEST(WZ_TEST, WZREADER_PARSE_ROOT) {
         new wz::WZReader("../../wz/Etc.wz", wzkey));
     reader->Valid();
     reader->GetVersion();
-    wz::WZNode root(wz::WZNodeType::kDirectory, "/", reader->GetPosition(),
-                    reader);
-    root.ExpandDirectory();
+    auto root = boost::make_shared<wz::WZNode>(wz::WZNode(wz::WZNodeType::kDirectory, "/", reader->GetPosition(),
+                    reader));
+    root->ExpandDirectory();
 }
