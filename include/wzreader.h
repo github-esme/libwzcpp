@@ -2,6 +2,7 @@
 #define LIBWZ_WZ_READER
 
 #include <boost/container/vector.hpp>
+#include <boost/make_shared.hpp>
 #include <boost/thread/mutex.hpp>
 #include <cinttypes>
 #include <string>
@@ -40,14 +41,15 @@ class WZReader {
         return value;
     }
     template <typename T>
-    inline auto ReadArray(size_t length) -> boost::container::vector<T> {
-        boost::container::vector<T> data;
+    inline auto ReadArray(boost::container::vector<T> &data, size_t length)
+        -> void {
+        data.clear();
         data.reserve(length);
         data.resize(length);
         memcpy(data.data(), _offset, length * sizeof(T));
         _offset += length * sizeof(T);
         _position += length * sizeof(T);
-        return data;
+        return;
     }
 
     template <typename T>
@@ -67,9 +69,11 @@ class WZReader {
 
     auto ReadRawNullTerminatedString() -> std::string;
     auto ReadRawFixedSizeString(uint32_t size) -> std::string;
-    auto ReadString(size_t offset, bool factor = true) -> std::string;
-    auto ReadString(bool factor = true) -> std::string;
-    auto TransitString(size_t offset, bool factor = true) -> std::string;
+    auto ReadString(std::string &rtn, size_t offset, bool factor = true)
+        -> std::string &;
+    auto ReadString(std::string &rtn, bool factor = true) -> std::string &;
+    auto TransitString(std::string &rtn, size_t offset, bool factor = true)
+        -> std::string &;
     auto ReadNodeOffset() -> int32_t;
     auto SetPosition(uint64_t position) -> bool;
     auto GetPosition() -> uint64_t { return _position; }
@@ -101,13 +105,15 @@ class WZReader {
     auto LoadVersion() -> void;
     auto CalculateVersionHash(std::string version) -> uint16_t;
     auto CalculateVersionFactor(std::string version) -> uint16_t;
-    auto ReadStringXoredWithFactor() -> std::string;
-    auto ReadStringXored() -> std::string;
+    auto ReadStringXoredWithFactor(std::string &rtn) -> std::string &;
+    auto ReadStringXored(std::string &rtn) -> std::string &;
     auto DecryptString(uint8_t *buffer, uint8_t *key1, size_t size, bool wide)
         -> void;
     auto Xor(uint8_t *buffer, size_t size) -> void;
-    auto DecryptUnicodeString(uint16_t *orignal, size_t size) -> std::string;
-    auto DecryptASCIIString(uint8_t *orignal, size_t size) -> std::string;
+    auto DecryptUnicodeString(std::string &rtn, uint16_t *orignal, size_t size)
+        -> std::string &;
+    auto DecryptASCIIString(std::string &rtn, uint8_t *orignal, size_t size)
+        -> std::string &;
 };  // namespace wz
 
 }  // namespace wz

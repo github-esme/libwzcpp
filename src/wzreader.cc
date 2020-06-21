@@ -97,76 +97,81 @@ auto WZReader::ReadNodeOffset() -> int32_t {
     return offset;
 }
 
-auto WZReader::ReadString(bool factor) -> std::string {
+auto WZReader::ReadString(std::string &rtn, bool factor) -> std::string & {
     if (factor) {
-        return ReadStringXoredWithFactor();
+        return ReadStringXoredWithFactor(rtn);
     } else {
-        return ReadStringXored();
+        return ReadStringXored(rtn);
     }
 }
 
-auto WZReader::ReadString(size_t offset, bool factor) -> std::string {
+auto WZReader::ReadString(std::string &rtn, size_t offset, bool factor)
+    -> std::string & {
     auto rooback = GetPosition();
     SetPosition(offset);
-    std::string rtn;
     if (factor) {
-        rtn = ReadStringXoredWithFactor();
+        ReadStringXoredWithFactor(rtn);
     } else {
-        rtn = ReadStringXored();
+        ReadStringXored(rtn);
     }
     SetPosition(rooback);
     return rtn;
 }
 
-auto WZReader::TransitString(size_t parent_base, bool factor) -> std::string {
+auto WZReader::TransitString(std::string &rtn, size_t parent_base, bool factor)
+    -> std::string & {
     auto type = Read<uint8_t>();
     switch (type) {
         case 0x0:
         case 0x73:
-            return ReadString(factor);
+            return ReadString(rtn, factor);
             break;
         case 1:
         case 0x1B: {
-            return ReadString(parent_base + Read<uint32_t>());
+            return ReadString(rtn, parent_base + Read<uint32_t>());
         }
         default:
             printf("[Error] Unknown Transit String Type: %d\n", type);
             assert(false);
             break;
     }
+    return rtn;
 }
 
-auto WZReader::ReadStringXoredWithFactor() -> std::string {
+auto WZReader::ReadStringXoredWithFactor(std::string &rtn) -> std::string & {
     auto smallsize = Read<int8_t>();
     if (smallsize > 0) {
         // Unicode String
         auto wsize = smallsize == SCHAR_MAX ? Read<uint32_t>() : smallsize;
-        if (wsize >= USHRT_MAX) return "";
-        auto array = ReadArray<uint16_t>(wsize);
-        return DecryptUnicodeString(array.data(), wsize);
-
+        if (wsize >= USHRT_MAX) return rtn;
+        auto array = boost::container::vector<uint16_t>();
+        ReadArray<uint16_t>(array, wsize);
+        return DecryptUnicodeString(rtn, array.data(), wsize);
     } else {
         auto bigsize = smallsize == SCHAR_MIN ? Read<uint32_t>() : -smallsize;
-        auto array = ReadArray<uint8_t>(bigsize);
-        return DecryptASCIIString(array.data(), bigsize);
+        auto array = boost::container::vector<uint8_t>();
+        ReadArray<uint8_t>(array, bigsize);
+        return DecryptASCIIString(rtn, array.data(), bigsize);
     }
 }
 
-auto WZReader::ReadStringXored() -> std::string {
-    std::string str;
+auto WZReader::ReadStringXored(std::string &rtn) -> std::string & {
+    rtn.clear();
     auto size = ReadCompressed<int32_t>();
-    if (size >= str.max_size()) return "";
-    auto buffer = ReadArray<uint8_t>(size);
+    if (size >= rtn.max_size()) return rtn;
+    auto buffer = boost::container::vector<uint8_t>();
+    ReadArray<uint8_t>(buffer, size);
     _key[size - 1];
     Xor(buffer.data(), size);
-    str.append(buffer.data(), buffer.data() + size);
-    return str;
+    rtn.append(buffer.data(), buffer.data() + size);
+    return rtn;
 }
 
-auto WZReader::DecryptUnicodeString(uint16_t *orignal, size_t size)
-    -> std::string {
-    std::u16string str;
-    if (size / 2 >= str.max_size()) return "";
+auto WZReader::DecryptUnicodeString(std::string &rtn, uint16_t *orignal,
+                                    size_t size) -> std::string & {
+    rtn.clear();
+    std::u16string u16str;
+    if (size / 2 >= u16str.max_size()) return rtn;
     // For multithreaded
     thread_local boost::container::vector<uint16_t> buffer;
     buffer.reserve(size);
@@ -174,22 +179,22 @@ auto WZReader::DecryptUnicodeString(uint16_t *orignal, size_t size)
     memcpy(buffer.data(), orignal, size << 1);
     DecryptString((uint8_t *)buffer.data(),
                   reinterpret_cast<uint8_t *>(orignal), size << 1, true);
-    str.append(buffer.data(), buffer.data() + size);
-    auto ptr = str.c_str();
-    return utils::string::ToUTF8(str);
+    u16str.append(buffer.data(), buffer.data() + size);
+    utils::string::ToUTF8(u16str, rtn);
+    return rtn;
 }
 
-auto WZReader::DecryptASCIIString(uint8_t *orignal, size_t size)
-    -> std::string {
-    std::string str;
-    if (size / 2 >= str.max_size()) return "";
+auto WZReader::DecryptASCIIString(std::string &rtn, uint8_t *orignal,
+                                  size_t size) -> std::string & {
+    rtn.clear();
+    if (size / 2 >= rtn.max_size()) return rtn;
     // For multithreaded
     thread_local boost::container::vector<uint8_t> buffer;
     buffer.reserve(size);
     buffer.resize(size);
     DecryptString(buffer.data(), orignal, size, false);
-    str.append(buffer.data(), buffer.data() + size);
-    return str;
+    rtn.append(buffer.data(), buffer.data() + size);
+    return rtn;
 }
 
 auto WZReader::LoadHeader() -> void {
@@ -238,7 +243,7 @@ auto WZReader::CalculateVersionHash(std::string version) -> uint16_t {
 auto WZReader::DecryptString(uint8_t *buffer, uint8_t *origin, size_t size,
                              bool wide) -> void {
     auto i = 0u;
-#ifdef __SSE__
+#ifdef __SSE__s
     __m128i amask =
         _mm_setr_epi8(0xAA, 0xAB, 0xAC, 0xAD, 0xAE, 0xAF, 0xB0, 0xB1, 0xB2,
                       0xB3, 0xB4, 0xB5, 0xB6, 0xB7, 0xB8, 0xB9);

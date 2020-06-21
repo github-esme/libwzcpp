@@ -24,20 +24,18 @@ bool EndWith(std::string const& value, std::string const& ending) {
     if (ending.size() > value.size()) return false;
     return std::equal(ending.rbegin(), ending.rend(), value.rbegin());
 }
-auto ToUTF8(const std::u16string& utf16) -> std::string {
-    std::string out = "";
+auto ToUTF8(const std::u16string& utf16, std::string& utf8) -> void {
     char* src = (char*)utf16.c_str();
     size_t srclen = utf16.length() * 2;
-    out.reserve(srclen * 2);
-    out.resize(srclen * 2);
-    char* dst = (char*)out.data();
+    utf8.reserve(srclen * 2);
+    utf8.resize(srclen * 2);
+    char* dst = (char*)utf8.data();
     memset(dst, 0, srclen);
-    size_t dstlen = out.size();
+    size_t dstlen = utf8.size();
     iconv_t conv = iconv_open("UTF8", "UTF-16LE");
-    if ((size_t)conv == -1) return out;
+    if ((size_t)conv == -1) return;
     auto e = iconv(conv, &src, &srclen, &dst, &dstlen);
     iconv_close(conv);
-    return out;
 }
 
 auto Split(const std::string& str, boost::container::vector<std::string>& ret,
