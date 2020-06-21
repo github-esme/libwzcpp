@@ -56,6 +56,13 @@ struct WZData {
             int32_t x;
             int32_t y;
         } vector;
+        struct {
+            uint32_t size_mp3;
+            uint32_t length_audio;
+            size_t offset_sound_header;
+            uint8_t size_wav_header;
+            size_t offset_wav_header;
+        } audio;
     };
 };
 

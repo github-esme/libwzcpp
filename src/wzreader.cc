@@ -238,7 +238,7 @@ auto WZReader::CalculateVersionHash(std::string version) -> uint16_t {
 auto WZReader::DecryptString(uint8_t *buffer, uint8_t *origin, size_t size,
                              bool wide) -> void {
     auto i = 0u;
-#ifdef __SSE__X
+#ifdef __SSE__
     __m128i amask =
         _mm_setr_epi8(0xAA, 0xAB, 0xAC, 0xAD, 0xAE, 0xAF, 0xB0, 0xB1, 0xB2,
                       0xB3, 0xB4, 0xB5, 0xB6, 0xB7, 0xB8, 0xB9);

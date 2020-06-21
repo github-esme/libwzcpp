@@ -53,7 +53,7 @@ auto WZNode::ExpandDirectory(uint32_t offset) -> bool {
     }
     for (auto& node : nodes) {
         auto iterator = _nodes.emplace(node.GetIdentity(), node);
-        // std::cout << node.GetFullPath() << std::endl;
+        std::cout << node.GetFullPath() << std::endl;
         _reader->SetPosition(node.GetOffset());
         if (node.GetNodeType() == WZNodeType::kDirectory)
             iterator.first->second.ExpandDirectory(node.GetOffset());
@@ -87,6 +87,8 @@ auto WZNode::ExpandNodes(uint32_t offset_image) -> bool {
         case WZNodeType::kConvex:
             return ExpandShape2dConvex2d(offset_image);
         case WZNodeType::kUOL:
+        case WZNodeType::kSound:
+            return ExpandSound(offset_image);
             return ExpandUol(offset_image);
         case WZNodeType::kLua:
             _data_node = true;
@@ -100,7 +102,8 @@ auto WZNode::ExpandNodes(uint32_t offset_image) -> bool {
 }
 
 auto WZNode::ExpandProperty(uint32_t image_offset) -> bool {
-    assert(_reader->Read<int16_t>() == 0);
+    auto resrved = _reader->Read<int16_t>();
+    // assert(resrved == 0);
     auto count = _reader->ReadCompressed<int32_t>();
     for (int i = 0; i < count; i++) {
         auto identity = _reader->TransitString(image_offset);
@@ -115,10 +118,10 @@ auto WZNode::ExpandProperty(uint32_t image_offset) -> bool {
         node._reader = _reader;
         node._data_node = true;
         // std::cout << node.GetFullPath() << std::endl;
-        // if (node.GetFullPath() ==
-        //     "/Etc.wz/LevelUpGuide.img/Contents/40/desc/5") {
-        //     int x = 1;
-        // }
+        if (node.GetFullPath() ==
+            "/Character.wz/Hair/00041074.img/walk1/1/hairBelowBody") {
+            int x = 1;
+        }
         switch (type) {
             case WZDataType::kNone:
                 break;
@@ -237,12 +240,20 @@ auto WZNode::GetFullPath() -> std::string {
 }
 
 auto WZNode::ExpandSound(uint32_t image_offset) -> bool {
+    std::cout << this->GetFullPath() << std::endl;
     auto unknown = _reader->Read<uint8_t>();
-    assert(unknown == 0);
-    auto size_sound = _reader->ReadCompressed<int32_t>();
-    auto length_sound = _reader->ReadCompressed<int32_t>();
-    auto offset_end_header = _reader->GetPosition();
-    auto x = 1;
+    // assert(unknown == 0);
+    auto size_mp3 = _reader->ReadCompressed<int32_t>();
+    auto length_audio = _reader->ReadCompressed<int32_t>();
+    auto offset_header_start = _reader->GetPosition();
+    const auto kSoundHeaderSize = 51;
+    auto offset_soundheader = _reader->GetPosition();
+    _reader->SetPosition(_reader->GetPosition() + kSoundHeaderSize);
+    auto wavsize = _reader->Read<uint8_t>();
+    auto offset_wavheader = _reader->GetPosition();
+    _data.audio.size_mp3 = size_mp3;
+    _data.audio.length_audio = length_audio;
+    _reader->SetPosition(_reader->GetPosition() + size_mp3);
     return true;
 }
 
