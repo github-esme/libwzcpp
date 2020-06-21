@@ -28,13 +28,13 @@ TEST(WZ_TEST, WZREADER_READSTRING) {
     wz::WZReader reader("../../wz/Etc.wz", wzkey);
     reader.Valid();
     reader.GetVersion();
-    reader.ReadCompressedInt();
+    reader.ReadCompressed<int32_t>();
     reader.Read<int8_t>();
     auto s = reader.ReadString();
     ASSERT_EQ(s, "StandardPDD.img");
 }
 
-TEST(WZ_TEST, WZREADER_PARSE_ROOT) {
+TEST(WZ_TEST, WZREADER_PARSE_ETC) {
     wz::WZKey wzkey(wz::WZKey::kDefaultAESKey, wz::WZKey::kZeroIV);
     auto reader = boost::shared_ptr<wz::WZReader>(
         new wz::WZReader("../../wz/Etc.wz", wzkey));
@@ -44,3 +44,28 @@ TEST(WZ_TEST, WZREADER_PARSE_ROOT) {
                     reader));
     root->ExpandDirectory();
 }
+
+TEST(WZ_TEST, WZREADER_PARSE_SOUND2) {
+    wz::WZKey wzkey(wz::WZKey::kDefaultAESKey, wz::WZKey::kZeroIV);
+    auto reader = boost::shared_ptr<wz::WZReader>(
+        new wz::WZReader("../../wz/Sound2.wz", wzkey));
+    reader->Valid();
+    reader->GetVersion();
+    auto root = boost::make_shared<wz::WZNode>(wz::WZNode(wz::WZNodeType::kDirectory, "/", reader->GetPosition(),
+                    reader));
+    root->SetIdentity("Sound2.wz");
+    root->ExpandDirectory();
+}
+
+TEST(WZ_TEST, WZREADER_PARSE_CHARACTER) {
+    wz::WZKey wzkey(wz::WZKey::kDefaultAESKey, wz::WZKey::kZeroIV);
+    auto reader = boost::shared_ptr<wz::WZReader>(
+        new wz::WZReader("../../wz/Character.wz", wzkey));
+    reader->Valid();
+    reader->GetVersion();
+    auto root = boost::make_shared<wz::WZNode>(wz::WZNode(wz::WZNodeType::kDirectory, "/", reader->GetPosition(),
+                    reader));
+    root->SetIdentity("Character.wz");
+    root->ExpandDirectory();
+}
+

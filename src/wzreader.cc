@@ -84,22 +84,6 @@ auto WZReader::SetPosition(uint64_t position) -> bool {
     return true;
 }
 
-auto WZReader::ReadCompressedInt() -> int32_t {
-    auto value = Read<int8_t>();
-    if (value == SCHAR_MIN) {
-        return Read<int32_t>();
-    }
-    return value;
-}
-
-auto WZReader::ReadCompressedLong() -> int64_t {
-    auto value = Read<int8_t>();
-    if (value == SCHAR_MIN) {
-        return Read<int64_t>();
-    }
-    return value;
-}
-
 auto WZReader::ReadNodeOffset() -> int32_t {
     auto factor = _version_factor;
     uint32_t offset =
@@ -147,7 +131,7 @@ auto WZReader::TransitString(size_t parent_base, bool factor) -> std::string {
         }
         default:
             printf("[Error] Unknown Transit String Type: %d\n", type);
-            return "";
+            assert(false);
             break;
     }
 }
@@ -170,13 +154,12 @@ auto WZReader::ReadStringXoredWithFactor() -> std::string {
 
 auto WZReader::ReadStringXored() -> std::string {
     std::string str;
-    auto size = ReadCompressedInt();
+    auto size = ReadCompressed<int32_t>();
     if (size >= str.max_size()) return "";
     auto buffer = ReadArray<uint8_t>(size);
     _key[size - 1];
     Xor(buffer.data(), size);
     str.append(buffer.data(), buffer.data() + size);
-    auto x = 1;
     return str;
 }
 

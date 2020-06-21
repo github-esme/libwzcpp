@@ -15,7 +15,7 @@ auto WZNode::ExpandDirectory(uint32_t offset) -> bool {
     if (_node_type != WZNodeType::kDirectory) return false;
     boost::container::vector<WZNode> nodes;
     _reader->SetPosition(offset);
-    uint32_t nodes_count = _reader->ReadCompressedInt();
+    auto nodes_count = _reader->ReadCompressed<int32_t>();
     for (auto i = 0u; i < nodes_count; i++) {
         std::string identity = "";
         auto node_type = static_cast<WZNodeType>(_reader->Read<int8_t>());
@@ -43,8 +43,8 @@ auto WZNode::ExpandDirectory(uint32_t offset) -> bool {
                 return false;
         }
         _reader->SetPosition(current_offset);
-        block_size = _reader->ReadCompressedInt();
-        block_checksum = _reader->ReadCompressedInt();
+        block_size = _reader->ReadCompressed<int32_t>();
+        block_checksum = _reader->ReadCompressed<int32_t>();
         block_offset = _reader->ReadNodeOffset();
         auto& node =
             nodes.emplace_back(WZNode(node_type, identity, block_size,
@@ -52,9 +52,8 @@ auto WZNode::ExpandDirectory(uint32_t offset) -> bool {
         node._parent = this;
     }
     for (auto& node : nodes) {
-        std::cout << node.GetIdentity() << "ExpandRoot: type: "
-                  << static_cast<uint32_t>(node.GetNodeType()) << std::endl;
         auto iterator = _nodes.emplace(node.GetIdentity(), node);
+        std::cout << node.GetFullPath() << std::endl;
         _reader->SetPosition(node.GetOffset());
         if (node.GetNodeType() == WZNodeType::kDirectory)
             iterator.first->second.ExpandDirectory(node.GetOffset());
@@ -77,7 +76,6 @@ auto WZNode::ExpandNodes(uint32_t offset_image) -> bool {
         propname = _reader->TransitString(offset_image);
     }
     auto type = GetNodeTypeByString(propname);
-    std::cout << _identity << ", propname = " << propname << std::endl;
     switch (type) {
         case WZNodeType::kProperty:
             return ExpandProperty(offset_image);
@@ -103,7 +101,7 @@ auto WZNode::ExpandNodes(uint32_t offset_image) -> bool {
 
 auto WZNode::ExpandProperty(uint32_t image_offset) -> bool {
     assert(_reader->Read<int16_t>() == 0);
-    auto count = _reader->ReadCompressedInt();
+    auto count = _reader->ReadCompressed<int32_t>();
     for (int i = 0; i < count; i++) {
         auto identity = _reader->TransitString(image_offset);
         auto type = _reader->Read<WZDataType>();
@@ -116,7 +114,11 @@ auto WZNode::ExpandProperty(uint32_t image_offset) -> bool {
         node._data_type = type;
         node._reader = _reader;
         node._data_node = true;
-        std::cout << identity << " datatype:" << (int32_t)type << std::endl;
+        std::cout << node.GetFullPath() << std::endl;
+        if (node.GetFullPath() ==
+            "/Character.wz/Longcoat/01051098.img/info/recovery") {
+            int x = 1;
+        }
         switch (type) {
             case WZDataType::kNone:
                 break;
@@ -126,20 +128,16 @@ auto WZNode::ExpandProperty(uint32_t image_offset) -> bool {
                 break;
             case WZDataType::kInteger:
             case WZDataType::kUInteger:
-                node._data.ireal = _reader->ReadCompressedInt();
-                std::cout << node._data.ireal << std::endl;
+                node._data.ireal = _reader->ReadCompressed<int32_t>();
                 break;
             case WZDataType::kFloat:
+                node._data.dreal = _reader->ReadCompressed<float>();
+                break;
+            case WZDataType::kDouble:
                 node._data.dreal = _reader->Read<double>();
                 break;
             case WZDataType::kString:
                 node._data.str = _reader->TransitString(image_offset);
-                std::cout << "\"" << node._data.str.c_str() << "\""
-                          << std::endl;
-                if (node._data.str.find("140等級製武器") != std::string::npos) {
-                    int x = 1;
-                }
-
                 break;
             case WZDataType::kLong:
                 node._data.ireal = _reader->Read<uint64_t>();
@@ -166,9 +164,9 @@ auto WZNode::ExpandCanvas(uint32_t image_offset) -> bool {
     if (has_nodes)
         if (!ExpandProperty(image_offset)) return false;
 
-    auto width = _reader->ReadCompressedInt();
-    auto height = _reader->ReadCompressedInt();
-    auto format1 = _reader->ReadCompressedInt();
+    auto width = _reader->ReadCompressed<int32_t>();
+    auto height = _reader->ReadCompressed<int32_t>();
+    auto format1 = _reader->ReadCompressed<int32_t>();
     auto format2 = _reader->Read<uint8_t>();
     auto reserved = _reader->Read<uint32_t>();
     auto size = _reader->Read<uint32_t>();
@@ -188,8 +186,8 @@ auto WZNode::ExpandCanvas(uint32_t image_offset) -> bool {
 }
 
 auto WZNode::ExpandShape2dVector2d(uint32_t image_offset) -> bool {
-    auto x = _reader->ReadCompressedInt();
-    auto y = _reader->ReadCompressedInt();
+    auto x = _reader->ReadCompressed<int32_t>();
+    auto y = _reader->ReadCompressed<int32_t>();
     _node_type = WZNodeType::kVector;
     _data_node = true;
     _data.vector.x = x;
@@ -199,7 +197,7 @@ auto WZNode::ExpandShape2dVector2d(uint32_t image_offset) -> bool {
 
 auto WZNode::ExpandShape2dConvex2d(uint32_t image_offset) -> bool {
     _node_type = WZNodeType::kConvex;
-    auto size = _reader->ReadCompressedInt();
+    auto size = _reader->ReadCompressed<int32_t>();
     for (auto i = 0; i < size; i++) {
         if (!ExpandNodes(image_offset)) return false;
     }
@@ -209,7 +207,6 @@ auto WZNode::ExpandShape2dConvex2d(uint32_t image_offset) -> bool {
 auto WZNode::ExpandUol(uint32_t image_offset) -> bool {
     auto v = _reader->Read<int8_t>();
     auto path = _reader->TransitString(image_offset);
-    std::cout << "uol:" << path;
     _data_node = true;
     _node_type = WZNodeType::kUOL;
     _data.str = path;
@@ -229,11 +226,21 @@ auto WZNode::ExpandUol(uint32_t image_offset) -> bool {
     return true;
 }
 
+auto WZNode::GetFullPath() -> std::string {
+    std::string path = "";
+    auto iterator = this;
+    while (iterator) {
+        path = "/" + iterator->_identity + path;
+        iterator = iterator->_parent;
+    }
+    return path;
+}
+
 auto WZNode::ExpandSound(uint32_t image_offset) -> bool {
     auto unknown = _reader->Read<uint8_t>();
     assert(unknown == 0);
-    auto size_sound = _reader->ReadCompressedInt();
-    auto length_sound = _reader->ReadCompressedInt();
+    auto size_sound = _reader->ReadCompressed<int32_t>();
+    auto length_sound = _reader->ReadCompressed<int32_t>();
     auto offset_end_header = _reader->GetPosition();
     auto x = 1;
     return true;

@@ -50,6 +50,15 @@ class WZReader {
         return data;
     }
 
+    template <typename T>
+    inline auto ReadCompressed() -> T {
+        auto value = Read<int8_t>();
+        if (value == SCHAR_MIN) {
+            return Read<T>();
+        }
+        return value;
+    }
+
     auto GetHeader() -> WZHeader & {
         if (_header.signature != 0) return _header;
         LoadHeader();
@@ -61,10 +70,7 @@ class WZReader {
     auto ReadString(size_t offset, bool factor = true) -> std::string;
     auto ReadString(bool factor = true) -> std::string;
     auto TransitString(size_t offset, bool factor = true) -> std::string;
-    auto ReadCompressedInt() -> int32_t;
-    auto ReadCompressedLong() -> int64_t;
     auto ReadNodeOffset() -> int32_t;
-
     auto SetPosition(uint64_t position) -> bool;
     auto GetPosition() -> uint64_t { return _position; }
     auto GetVersion() -> uint32_t { return _version; }

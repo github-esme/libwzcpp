@@ -38,7 +38,7 @@ enum class WZDataType : uint8_t {
 
 typedef boost::tuple<int32_t, int32_t> Vector2i;
 typedef boost::container::map<std::string, WZNode> WZNodes;
-typedef struct WZData {
+struct WZData {
     std::string str;
     double dreal;
     int64_t ireal;

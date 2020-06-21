@@ -46,6 +46,7 @@ class WZNode : public boost::enable_shared_from_this<WZNode> {
     auto SetParent(WZNode* parent) -> void { _parent = parent; }
     auto SetSize(uint32_t size) -> void { _size = size; }
     auto IsParsed() -> bool { return _parsed; }
+    auto GetFullPath() -> std::string;
 
    protected:
    private:
