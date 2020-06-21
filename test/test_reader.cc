@@ -1,8 +1,8 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
-#include <boost/shared_ptr.hpp>
 #include <boost/make_shared.hpp>
+#include <boost/shared_ptr.hpp>
 #include <cinttypes>
 #include <cstdlib>
 #include <vector>
@@ -23,25 +23,15 @@ TEST(WZ_TEST, WZREADER_VALID) {
     ASSERT_EQ(reader.Valid(), true);
 }
 
-TEST(WZ_TEST, WZREADER_READSTRING) {
-    wz::WZKey wzkey(wz::WZKey::kDefaultAESKey, wz::WZKey::kZeroIV);
-    wz::WZReader reader("../../wz/Etc.wz", wzkey);
-    reader.Valid();
-    reader.GetVersion();
-    reader.ReadCompressed<int32_t>();
-    reader.Read<int8_t>();
-    auto s = reader.ReadString();
-    ASSERT_EQ(s, "StandardPDD.img");
-}
-
 TEST(WZ_TEST, WZREADER_PARSE_ETC) {
     wz::WZKey wzkey(wz::WZKey::kDefaultAESKey, wz::WZKey::kZeroIV);
     auto reader = boost::shared_ptr<wz::WZReader>(
         new wz::WZReader("../../wz/Etc.wz", wzkey));
     reader->Valid();
     reader->GetVersion();
-    auto root = boost::make_shared<wz::WZNode>(wz::WZNode(wz::WZNodeType::kDirectory, "/", reader->GetPosition(),
-                    reader));
+    auto root = boost::make_shared<wz::WZNode>(wz::WZNode(
+        wz::WZNodeType::kDirectory, "/", reader->GetPosition(), reader));
+    root->SetIdentity("Etc.wz");
     root->ExpandDirectory();
 }
 
@@ -51,8 +41,8 @@ TEST(WZ_TEST, WZREADER_PARSE_SOUND2) {
         new wz::WZReader("../../wz/Sound2.wz", wzkey));
     reader->Valid();
     reader->GetVersion();
-    auto root = boost::make_shared<wz::WZNode>(wz::WZNode(wz::WZNodeType::kDirectory, "/", reader->GetPosition(),
-                    reader));
+    auto root = boost::make_shared<wz::WZNode>(wz::WZNode(
+        wz::WZNodeType::kDirectory, "/", reader->GetPosition(), reader));
     root->SetIdentity("Sound2.wz");
     root->ExpandDirectory();
 }
@@ -63,9 +53,8 @@ TEST(WZ_TEST, WZREADER_PARSE_CHARACTER) {
         new wz::WZReader("../../wz/Character.wz", wzkey));
     reader->Valid();
     reader->GetVersion();
-    auto root = boost::make_shared<wz::WZNode>(wz::WZNode(wz::WZNodeType::kDirectory, "/", reader->GetPosition(),
-                    reader));
+    auto root = boost::make_shared<wz::WZNode>(wz::WZNode(
+        wz::WZNodeType::kDirectory, "/", reader->GetPosition(), reader));
     root->SetIdentity("Character.wz");
     root->ExpandDirectory();
 }
-

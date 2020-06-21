@@ -146,7 +146,7 @@ auto WZReader::ReadStringXoredWithFactor() -> std::string {
         return DecryptUnicodeString(array.data(), wsize);
 
     } else {
-        auto bigsize = smallsize == SCHAR_MAX ? Read<uint32_t>() : -smallsize;
+        auto bigsize = smallsize == SCHAR_MIN ? Read<uint32_t>() : -smallsize;
         auto array = ReadArray<uint8_t>(bigsize);
         return DecryptASCIIString(array.data(), bigsize);
     }

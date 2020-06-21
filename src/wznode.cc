@@ -53,7 +53,7 @@ auto WZNode::ExpandDirectory(uint32_t offset) -> bool {
     }
     for (auto& node : nodes) {
         auto iterator = _nodes.emplace(node.GetIdentity(), node);
-        std::cout << node.GetFullPath() << std::endl;
+        // std::cout << node.GetFullPath() << std::endl;
         _reader->SetPosition(node.GetOffset());
         if (node.GetNodeType() == WZNodeType::kDirectory)
             iterator.first->second.ExpandDirectory(node.GetOffset());
@@ -114,11 +114,11 @@ auto WZNode::ExpandProperty(uint32_t image_offset) -> bool {
         node._data_type = type;
         node._reader = _reader;
         node._data_node = true;
-        std::cout << node.GetFullPath() << std::endl;
-        if (node.GetFullPath() ==
-            "/Character.wz/Longcoat/01051098.img/info/recovery") {
-            int x = 1;
-        }
+        // std::cout << node.GetFullPath() << std::endl;
+        // if (node.GetFullPath() ==
+        //     "/Etc.wz/LevelUpGuide.img/Contents/40/desc/5") {
+        //     int x = 1;
+        // }
         switch (type) {
             case WZDataType::kNone:
                 break;
@@ -140,7 +140,7 @@ auto WZNode::ExpandProperty(uint32_t image_offset) -> bool {
                 node._data.str = _reader->TransitString(image_offset);
                 break;
             case WZDataType::kLong:
-                node._data.ireal = _reader->Read<uint64_t>();
+                node._data.ireal = _reader->ReadCompressed<uint64_t>();
                 break;
             case WZDataType::kSub: {
                 node._data_node = false;
