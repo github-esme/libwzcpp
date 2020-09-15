@@ -109,18 +109,18 @@ auto WZNode::ExpandProperty(uint32_t image_offset) -> bool {
     for (int i = 0; i < count; i++) {
         std::string identity = "";
         _reader->TransitString(identity, image_offset);
-        auto type = _reader->Read<WZDataType>();
+        auto data_type = _reader->Read<WZDataType>();
         auto& node =
             _nodes
                 .emplace(identity, WZNode(WZNodeType::kProperty, identity,
                                           _reader->GetPosition(), _reader))
                 .first->second;
         node._parent = this;
-        node._data_type = type;
+        node._data_type = data_type;
         node._reader = _reader;
         node._data_node = true;
         // std::cout << node.GetFullPath() << std::endl;
-        switch (type) {
+        switch (data_type) {
             case WZDataType::kNone:
                 break;
             case WZDataType::kShort:
@@ -152,6 +152,7 @@ auto WZNode::ExpandProperty(uint32_t image_offset) -> bool {
                 break;
             }
             default:
+                printf("error data type");
                 return false;
                 break;
         }
@@ -401,20 +402,23 @@ auto WZNode::GetStringValue() -> const std::string& {
     switch (_data_type) {
         case WZDataType::kFloat:
         case WZDataType::kDouble:
-            return std::to_string(_data.dreal);
+            if (_data.str.empty()) {
+                _data.str = std::to_string(_data.dreal);
+            }
             break;
         case WZDataType::kInteger:
         case WZDataType::kUInteger:
         case WZDataType::kShort:
         case WZDataType::kUShort:
         case WZDataType::kLong:
-            return std::to_string(_data.ireal);
-        case WZDataType::kString:
-            return _data.str;
+            if (_data.str.empty()) {
+                _data.str = std::to_string(_data.ireal);
+            }
+            break;
         default:
-            return 0UL;
             break;
     }
+    return _data.str;
 }
 
 auto WZNode::GetSoundValue() -> const boost::container::vector<uint8_t>& {

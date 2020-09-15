@@ -44,33 +44,35 @@ enum class WZDataType : uint8_t {
 typedef boost::tuple<int32_t, int32_t> Vector2i;
 typedef boost::container::map<std::string, WZNode> WZNodes;
 struct WZData {
-    std::string str;
-    double dreal;
-    int64_t ireal;
+    public:
+    WZData() {}
+    std::string str = "";
+    double dreal = 0.0;
+    int64_t ireal = 0;
     boost::container::vector<uint8_t> buffer;
     union {
         struct {
-            uint32_t width;
-            uint32_t height;
-            uint32_t format1;
-            uint32_t format2;
-            uint32_t reserved;
-            uint32_t size;
-            uint64_t offset_bitmap;
+            uint32_t width = 0;
+            uint32_t height = 0;
+            uint32_t format1 = 0;
+            uint32_t format2 = 0;
+            uint32_t reserved = 0;
+            uint32_t size = 0;
+            uint64_t offset_bitmap = 0;
         } bitmap;
         struct {
-            int32_t x;
-            int32_t y;
+            int32_t x = 0;
+            int32_t y = 0;
         } vector;
         struct {
-            uint32_t size_mp3;
-            uint32_t length_audio;
-            size_t offset_sound_header;
-            uint8_t size_wav_header;
-            size_t offset_wav_header;
-            size_t offset_mp3;
+            uint32_t size_mp3 = 0;
+            uint32_t length_audio = 0;
+            size_t offset_sound_header = 0;
+            uint8_t size_wav_header = 0;
+            size_t offset_wav_header = 0;
+            size_t offset_mp3 = 0;
             wav::WavFormat wav_header;
-            bool encrpyted_header;
+            bool encrpyted_header = false;
         } audio;
     };
 };

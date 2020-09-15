@@ -6,7 +6,7 @@
 
 namespace wav {
 
-enum class WavFormatEncoding : uint16_t{
+enum class WavFormatEncoding : uint16_t {
     kUnknown = 0,
     kPcm = 1,
     kAdpcm = 2,
@@ -169,13 +169,13 @@ enum class WavFormatEncoding : uint16_t{
 
 #pragma pack(push, 1)
 struct WavFormat {
-    WavFormatEncoding format;
-    uint16_t channels;
-    uint32_t sample_rate;
-    uint32_t average_bytes_per_second;
-    uint16_t block_ailgn;
-    uint16_t bits_per_sample;
-    uint16_t extra_size;
+    WavFormatEncoding format = WavFormatEncoding::kUnknown;
+    uint16_t channels = 0;
+    uint32_t sample_rate = 0;
+    uint32_t average_bytes_per_second = 0;
+    uint16_t block_ailgn = 0;
+    uint16_t bits_per_sample = 0;
+    uint16_t extra_size = 0;
 };
 #pragma pack(pop)
 
