@@ -11,7 +11,7 @@ namespace string {
 auto IsNumber(const std::string &s) -> bool;
 auto Split(const std::string& str, boost::container::vector<std::string>& ret, std::string sep, bool nullallowed) -> uint32_t;
 bool EndWith(std::string const &value, std::string const &ending);
-auto ToUTF8(const std::u16string &utf16) -> std::string;
+auto ToUTF8(const std::u16string &utf16, std::string& utf8) -> void;
 }  // namespace string
 namespace bits {
 template <typename INT>
