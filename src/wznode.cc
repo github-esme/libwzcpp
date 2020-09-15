@@ -1,9 +1,8 @@
 #include "wznode.h"
 
 #include <boost/make_shared.hpp>
-#include <iostream>
-
 #include <fstream>
+#include <iostream>
 
 #include "utils.h"
 namespace wz {
@@ -91,7 +90,6 @@ auto WZNode::ExpandNodes(uint32_t offset_image) -> bool {
         case WZNodeType::kUOL:
             return ExpandUol(offset_image);
         case WZNodeType::kSound:
-            _node_type = WZNodeType::kSound;
             return ExpandSound(offset_image);
         case WZNodeType::kLua:
             _data_node = true;
@@ -241,6 +239,7 @@ auto WZNode::GetFullPath() -> std::string {
 }
 
 auto WZNode::ExpandSound(uint32_t image_offset) -> bool {
+    _node_type = WZNodeType::kSound;
     // std::cout << this->GetFullPath() << std::endl;
     auto unknown = _reader->Read<uint8_t>();
     // assert(unknown == 0);
@@ -280,14 +279,7 @@ auto WZNode::ExpandSound(uint32_t image_offset) -> bool {
             printf("decode wave header error.");
         }
     }
-    printf("%s\n", this->GetFullPath().c_str());
-
     _reader->SetPosition(_reader->GetPosition() + size_mp3);
-
-    std::ofstream out("/tmp/test.mp3", std::ios::binary);
-    out.write((char*)this->GetSoundValue().data(), this->GetSoundValue().size());
-    out.flush();
-    exit(0);
     return true;
 }
 
@@ -309,13 +301,130 @@ auto WZNode::GetNodeTypeByString(const std::string& str) -> WZNodeType {
     }
 };
 
+auto WZNode::GetInteger() -> int32_t {
+    switch (_data_type) {
+        case WZDataType::kFloat:
+        case WZDataType::kDouble:
+            return static_cast<int32_t>(_data.dreal);
+            break;
+        case WZDataType::kInteger:
+        case WZDataType::kUInteger:
+        case WZDataType::kShort:
+        case WZDataType::kUShort:
+        case WZDataType::kLong:
+            return static_cast<int32_t>(_data.ireal);
+        case WZDataType::kString:
+            if (!_data.str.empty() &&
+                std::all_of(_data.str.begin(), _data.str.end(), ::isdigit)) {
+                return std::atoi(_data.str.c_str());
+            }
+            return 0;
+        default:
+            return 0;
+            break;
+    }
+}
+
+auto WZNode::GetUInteger() -> uint32_t {
+    switch (_data_type) {
+        case WZDataType::kFloat:
+        case WZDataType::kDouble:
+            return static_cast<uint32_t>(_data.dreal);
+            break;
+        case WZDataType::kInteger:
+        case WZDataType::kUInteger:
+        case WZDataType::kShort:
+        case WZDataType::kUShort:
+        case WZDataType::kLong:
+            return static_cast<uint32_t>(_data.ireal);
+        case WZDataType::kString:
+            if (!_data.str.empty() &&
+                std::all_of(_data.str.begin(), _data.str.end(), ::isdigit)) {
+                return static_cast<uint32_t>(std::atoll(_data.str.c_str()));
+            }
+            return 0U;
+        default:
+            return 0U;
+            break;
+    }
+}
+
+auto WZNode::GetLong() -> int64_t {
+    switch (_data_type) {
+        case WZDataType::kFloat:
+        case WZDataType::kDouble:
+            return static_cast<int64_t>(_data.dreal);
+            break;
+        case WZDataType::kInteger:
+        case WZDataType::kUInteger:
+        case WZDataType::kShort:
+        case WZDataType::kUShort:
+        case WZDataType::kLong:
+            return static_cast<int64_t>(_data.ireal);
+        case WZDataType::kString:
+            if (!_data.str.empty() &&
+                std::all_of(_data.str.begin(), _data.str.end(), ::isdigit)) {
+                return std::atoll(_data.str.c_str());
+            }
+            return 0L;
+        default:
+            return 0L;
+            break;
+    }
+}
+
+auto WZNode::GetULong() -> uint64_t {
+    switch (_data_type) {
+        case WZDataType::kFloat:
+        case WZDataType::kDouble:
+            return static_cast<uint64_t>(_data.dreal);
+            break;
+        case WZDataType::kInteger:
+        case WZDataType::kUInteger:
+        case WZDataType::kShort:
+        case WZDataType::kUShort:
+        case WZDataType::kLong:
+            return static_cast<uint64_t>(_data.ireal);
+        case WZDataType::kString:
+            if (!_data.str.empty() &&
+                std::all_of(_data.str.begin(), _data.str.end(), ::isdigit)) {
+                return std::atoll(_data.str.c_str());
+            }
+            return 0UL;
+        default:
+            return 0UL;
+            break;
+    }
+}
+
+auto WZNode::GetStringValue() -> const std::string& {
+    switch (_data_type) {
+        case WZDataType::kFloat:
+        case WZDataType::kDouble:
+            return std::to_string(_data.dreal);
+            break;
+        case WZDataType::kInteger:
+        case WZDataType::kUInteger:
+        case WZDataType::kShort:
+        case WZDataType::kUShort:
+        case WZDataType::kLong:
+            return std::to_string(_data.ireal);
+        case WZDataType::kString:
+            return _data.str;
+        default:
+            return 0UL;
+            break;
+    }
+}
+
 auto WZNode::GetSoundValue() -> const boost::container::vector<uint8_t>& {
-    printf("type: %d %d\n", _node_type, _data.buffer.empty());
     if (_node_type != WZNodeType::kSound || !_data.buffer.empty()) {
         return _data.buffer;
     }
+    auto offset_current = _reader->GetPosition();
     _reader->SetPosition(_data.audio.offset_mp3);
     _reader->ReadArray(_data.buffer, _data.audio.size_mp3);
+    _reader->SetPosition(offset_current);
     return _data.buffer;
 }
 
