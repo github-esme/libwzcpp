@@ -3,6 +3,8 @@
 #include <boost/make_shared.hpp>
 #include <iostream>
 
+#include <fstream>
+
 #include "utils.h"
 namespace wz {
 
@@ -87,9 +89,10 @@ auto WZNode::ExpandNodes(uint32_t offset_image) -> bool {
         case WZNodeType::kConvex:
             return ExpandShape2dConvex2d(offset_image);
         case WZNodeType::kUOL:
-        case WZNodeType::kSound:
-            return ExpandSound(offset_image);
             return ExpandUol(offset_image);
+        case WZNodeType::kSound:
+            _node_type = WZNodeType::kSound;
+            return ExpandSound(offset_image);
         case WZNodeType::kLua:
             _data_node = true;
             _data.str = propname;
@@ -241,17 +244,50 @@ auto WZNode::ExpandSound(uint32_t image_offset) -> bool {
     // std::cout << this->GetFullPath() << std::endl;
     auto unknown = _reader->Read<uint8_t>();
     // assert(unknown == 0);
+    // sound buffer size
     auto size_mp3 = _reader->ReadCompressed<int32_t>();
+    // millesecond of audio
     auto length_audio = _reader->ReadCompressed<int32_t>();
     auto offset_header_start = _reader->GetPosition();
     const auto kSoundHeaderSize = 51;
-    auto offset_soundheader = _reader->GetPosition();
+    auto offset_sound_header = _reader->GetPosition();
+    // skipped sound header buffer ( 51 bytes )
     _reader->SetPosition(_reader->GetPosition() + kSoundHeaderSize);
-    auto wavsize = _reader->Read<uint8_t>();
-    auto offset_wavheader = _reader->GetPosition();
+    auto size_wav_header = _reader->Read<uint8_t>();
+    auto offset_wav_header = _reader->GetPosition();
+    _data.audio.offset_sound_header = offset_sound_header;
+    _data.audio.size_wav_header = size_wav_header;
+    _data.audio.offset_wav_header = offset_wav_header;
     _data.audio.size_mp3 = size_mp3;
     _data.audio.length_audio = length_audio;
+    _data.audio.offset_sound_header = offset_header_start;
+    _data.audio.wav_header = _reader->Read<wav::WavFormat>();
+    _data.audio.offset_mp3 = _reader->GetPosition();
+    // to check wave fomrat header size is correct
+    _data.audio.encrpyted_header =
+        sizeof(wav::WavFormat) + _data.audio.wav_header.extra_size !=
+        _data.audio.size_wav_header;
+
+    if (_data.audio.encrpyted_header) {
+        auto header_ptr = reinterpret_cast<char*>(&_data.audio.wav_header);
+        for (auto i = 0; i < _data.audio.size_wav_header; i++) {
+            header_ptr[i] ^= _reader->GetKey()[i];
+        }
+        auto recheck_header =
+            sizeof(wav::WavFormat) + _data.audio.wav_header.extra_size !=
+            _data.audio.size_wav_header;
+        if (!recheck_header) {
+            printf("decode wave header error.");
+        }
+    }
+    printf("%s\n", this->GetFullPath().c_str());
+
     _reader->SetPosition(_reader->GetPosition() + size_mp3);
+
+    std::ofstream out("/tmp/test.mp3", std::ios::binary);
+    out.write((char*)this->GetSoundValue().data(), this->GetSoundValue().size());
+    out.flush();
+    exit(0);
     return true;
 }
 
@@ -272,5 +308,15 @@ auto WZNode::GetNodeTypeByString(const std::string& str) -> WZNodeType {
         return WZNodeType::kLua;
     }
 };
+
+auto WZNode::GetSoundValue() -> const boost::container::vector<uint8_t>& {
+    printf("type: %d %d\n", _node_type, _data.buffer.empty());
+    if (_node_type != WZNodeType::kSound || !_data.buffer.empty()) {
+        return _data.buffer;
+    }
+    _reader->SetPosition(_data.audio.offset_mp3);
+    _reader->ReadArray(_data.buffer, _data.audio.size_mp3);
+    return _data.buffer;
+}
 
 }  // namespace wz

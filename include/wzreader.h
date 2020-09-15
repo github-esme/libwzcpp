@@ -79,7 +79,10 @@ class WZReader {
     auto GetPosition() -> uint64_t { return _position; }
     auto GetVersion() -> uint32_t { return _version; }
     auto GetLock() -> boost::mutex & { return _readlock; }
+    auto GetKey() -> WZKey& { return _key;  }
     auto GetNodeTypeByString(const std::string &str) -> WZNodeType;
+
+
 
    private:
     // For lock while reading nodes

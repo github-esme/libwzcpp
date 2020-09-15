@@ -48,6 +48,13 @@ class WZNode : public boost::enable_shared_from_this<WZNode> {
     auto IsParsed() -> bool { return _parsed; }
     auto GetFullPath() -> std::string;
 
+
+    // WzNodeTypes
+    auto GetInteger() -> uint32_t;
+    auto GetLong() -> uint64_t;
+    auto GetStringValue() -> std::string;
+    auto GetSoundValue() -> const boost::container::vector<uint8_t> &;
+
    protected:
    private:
     bool _parsed;

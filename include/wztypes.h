@@ -1,9 +1,14 @@
 #ifndef LIBWZ_NODE_TYPE_H
 #define LIBWZ_NODE_TYPE_H
 
+#include <boost/shared_ptr.hpp>
 #include <boost/container/map.hpp>
 #include <boost/tuple/tuple.hpp>
+
 #include <string>
+
+#include "wav.h"
+
 namespace wz {
 
 class WZNode;
@@ -42,6 +47,7 @@ struct WZData {
     std::string str;
     double dreal;
     int64_t ireal;
+    boost::container::vector<uint8_t> buffer;
     union {
         struct {
             uint32_t width;
@@ -62,6 +68,9 @@ struct WZData {
             size_t offset_sound_header;
             uint8_t size_wav_header;
             size_t offset_wav_header;
+            size_t offset_mp3;
+            wav::WavFormat wav_header;
+            bool encrpyted_header;
         } audio;
     };
 };
