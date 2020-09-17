@@ -30,7 +30,7 @@ find_package(OpenSSL REQUIRED)
 include_directories(${BoringSSL_INCLUDE_DIR})
 
 # libicu
-find_package(ICU "65.1" REQUIRED COMPONENTS uc dt in io)
+find_package(ICU REQUIRED COMPONENTS uc dt in io)
 include_directories(${ICU_INCLUDE_DIRS})
 link_directories(${ICU_LIBRARY_DIRS})
 
