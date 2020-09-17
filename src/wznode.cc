@@ -81,7 +81,6 @@ auto WZNode::ExpandNodes(uint32_t offset_image) -> bool {
         case WZNodeType::kProperty:
             return ExpandProperty(offset_image);
         case WZNodeType::kCanvas:
-            _node_type = WZNodeType::kCanvas;
             return ExpandCanvas(offset_image);
         case WZNodeType::kVector:
             return ExpandShape2dVector2d(offset_image);
@@ -161,6 +160,8 @@ auto WZNode::ExpandProperty(uint32_t image_offset) -> bool {
 }
 
 auto WZNode::ExpandCanvas(uint32_t image_offset) -> bool {
+    _node_type = WZNodeType::kCanvas;
+
     auto unknown = _reader->Read<uint8_t>();
     auto has_nodes = _reader->Read<uint8_t>();
     if (has_nodes)
@@ -174,7 +175,6 @@ auto WZNode::ExpandCanvas(uint32_t image_offset) -> bool {
     auto size = _reader->Read<uint32_t>();
     size_t offset_bitmap = _reader->GetPosition();
     _data_node = true;
-    _node_type = WZNodeType::kCanvas;
     _data.bitmap.width = width;
     _data.bitmap.height = height;
     _data.bitmap.format1 = format1;
