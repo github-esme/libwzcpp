@@ -157,7 +157,7 @@ auto WZReader::ReadStringXoredWithFactor(std::string &rtn) -> std::string & {
 
 auto WZReader::ReadStringXored(std::string &rtn) -> std::string & {
     rtn.clear();
-    auto size = ReadCompressed<int32_t>();
+    auto size = ReadCompressed<uint32_t>();
     if (size >= rtn.max_size()) return rtn;
     auto buffer = boost::container::vector<uint8_t>();
     ReadArray<uint8_t>(buffer, size);

@@ -30,6 +30,40 @@ class WZNode : public boost::enable_shared_from_this<WZNode> {
           _reader(reader) {}
     virtual ~WZNode() { _reader.reset(); }
 
+    WZNode(WZNode&& copy) {
+      _parsed  = copy._parsed;
+      _node_type  = copy._node_type;
+      _data_type  = copy._data_type;
+      _identity  = copy._identity;
+      _offset  = copy._offset;
+      _parent  = copy._parent;
+      _reader  = copy._reader;
+      _data.str = copy._data.str;
+      _data.dreal = copy._data.dreal;
+      _data.ireal = copy._data.ireal;
+      _data.buffer = copy._data.buffer;
+      _data.bitmap = copy._data.bitmap;
+      _data.vector = copy._data.vector;
+      _data.audio = copy._data.audio;
+    }
+
+    WZNode(const WZNode& copy) {
+      _parsed  = copy._parsed;
+      _node_type  = copy._node_type;
+      _data_type  = copy._data_type;
+      _identity  = copy._identity;
+      _offset  = copy._offset;
+      _parent  = copy._parent;
+      _reader  = copy._reader;
+      _data.str = copy._data.str;
+      _data.dreal = copy._data.dreal;
+      _data.ireal = copy._data.ireal;
+      _data.buffer = copy._data.buffer;
+      _data.bitmap = copy._data.bitmap;
+      _data.vector = copy._data.vector;
+      _data.audio = copy._data.audio;
+    }
+
     auto ExpandDirectory() -> bool;
     auto ExpandNodes() -> bool;
     auto GetIdentity() -> std::string { return _identity; }

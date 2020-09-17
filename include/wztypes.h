@@ -50,7 +50,7 @@ struct WZData {
     double dreal = 0.0;
     int64_t ireal = 0;
     boost::container::vector<uint8_t> buffer;
-    union {
+    union  {
         struct {
             uint32_t width = 0;
             uint32_t height = 0;
