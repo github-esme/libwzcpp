@@ -9,6 +9,7 @@
 
 #include "wzkey.h"
 #include "wztypes.h"
+#include "wznode.h"
 
 namespace wz {
 

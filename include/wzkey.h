@@ -10,10 +10,10 @@ namespace wz {
 namespace container = boost::container;
 class WZKey {
    public:
-    static boost::container::vector<uint8_t> kDefaultAESKey;
-    static boost::container::vector<uint8_t> kZeroIV;
-    static boost::container::vector<uint8_t> kMSEAIV;
-    static boost::container::vector<uint8_t> kGMSIV;
+    static const boost::container::vector<uint8_t> kDefaultAESKey;
+    static const boost::container::vector<uint8_t> kZeroIV;
+    static const boost::container::vector<uint8_t> kMSEAIV;
+    static const boost::container::vector<uint8_t> kGMSIV;
     static WZKey kLuaKey;
     static const uint32_t kBlockSize = 4096;
     static const uint32_t kSizeAESKey = 32;

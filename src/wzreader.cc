@@ -17,7 +17,7 @@
 #endif
 #include "utils.h"
 #include "wzerrors.h"
-#include "wznode.h"
+
 
 namespace wz {
 

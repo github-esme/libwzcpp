@@ -350,6 +350,30 @@ auto WZNode::GetUInteger() -> uint32_t {
     }
 }
 
+auto WZNode::GetDouble() -> double {
+    switch (_data_type) {
+        case WZDataType::kFloat:
+        case WZDataType::kDouble:
+            return _data.dreal;
+            break;
+        case WZDataType::kInteger:
+        case WZDataType::kUInteger:
+        case WZDataType::kShort:
+        case WZDataType::kUShort:
+        case WZDataType::kLong:
+            return static_cast<double>(_data.ireal);
+        case WZDataType::kString:
+            if (!_data.str.empty() &&
+                std::all_of(_data.str.begin(), _data.str.end(), ::isdigit)) {
+                return std::atoll(_data.str.c_str());
+            }
+            return 0.0;
+        default:
+            return 0.0;
+            break;
+    }
+}
+
 auto WZNode::GetLong() -> int64_t {
     switch (_data_type) {
         case WZDataType::kFloat:
@@ -396,6 +420,10 @@ auto WZNode::GetULong() -> uint64_t {
             return 0UL;
             break;
     }
+}
+
+auto WZNode::GetVector() -> Vector{
+    return _data.vector;
 }
 
 auto WZNode::GetStringValue() -> const std::string& {

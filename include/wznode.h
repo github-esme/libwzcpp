@@ -64,9 +64,10 @@ class WZNode : public boost::enable_shared_from_this<WZNode> {
       _data.audio = copy._data.audio;
     }
 
+    auto GetNodes() -> WZNodes& { return _nodes;}
     auto ExpandDirectory() -> bool;
     auto ExpandNodes() -> bool;
-    auto GetIdentity() -> std::string { return _identity; }
+    auto GetIdentity() -> std::string& { return _identity; }
     auto GetDataType() -> WZDataType { return _data_type; }
     auto GetNodeType() -> WZNodeType { return _node_type; }
     auto GetSize() -> uint32_t { return _size; }
@@ -85,8 +86,10 @@ class WZNode : public boost::enable_shared_from_this<WZNode> {
     // WzNodeTypes
     auto GetInteger() -> int32_t;
     auto GetUInteger() -> uint32_t;
+    auto GetVector() -> Vector;
     auto GetLong() -> int64_t;
     auto GetULong() -> uint64_t;
+    auto GetDouble() -> double;
     auto GetStringValue() -> const std::string&;
     auto GetSoundValue() -> const boost::container::vector<uint8_t>&;
     auto GetImageValue() -> const boost::container::vector<uint8_t>&;

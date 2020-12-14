@@ -43,6 +43,10 @@ enum class WZDataType : uint8_t {
 
 typedef boost::tuple<int32_t, int32_t> Vector2i;
 typedef boost::container::map<std::string, WZNode> WZNodes;
+struct Vector{
+    int32_t x;
+    int32_t y;
+};
 struct WZData {
     public:
     WZData() {}
@@ -60,10 +64,7 @@ struct WZData {
             uint32_t size = 0;
             uint64_t offset_bitmap = 0;
         } bitmap;
-        struct {
-            int32_t x = 0;
-            int32_t y = 0;
-        } vector;
+        Vector vector;
         struct {
             uint32_t size_mp3 = 0;
             uint32_t length_audio = 0;
