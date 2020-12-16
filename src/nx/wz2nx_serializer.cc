@@ -41,7 +41,7 @@ void WZ2NXSerializer::Parse(const std::string& path_to_wz, const std::string& pa
     }
     boost::container::vector<wz::WZNode*> node_levels;
     node_levels.push_back(root.get());
-    std::ofstream bw(path_to_nx, std::ios::binary);
+    std::fstream bw(path_to_nx, std::ios::binary);
 
     std::cout << "Write Headers..." << std::endl;
     bw.write("PKG4", 4);
@@ -107,9 +107,20 @@ void WZ2NXSerializer::Parse(const std::string& path_to_wz, const std::string& pa
     for (auto idx = 0u; idx < sounds_count; idx++) {
         bw.write((char*)&offsets[idx], sizeof(uint64_t));
     }
+    
+    boost::container::vector<uint8_t> uoldata;
+    uoldata.resize(16, 0);
+    std::cout << "Write linked node data..." << std::endl;
+    for(auto entry : _uol_nodes) {
+        wz::WZNode* linked = entry.second->GetLinkedNode();
+        if ( linked == nullptr ) continue;
+        bw.seekg(nodes_offset + (_nodes[linked] * 20 + 4), std::ios::beg);
+        bw.read((char*)uoldata.data(), 16);
+        bw.seekp(entry.first);
+        bw.write((char*)uoldata.data(), 16);
+    }
 
     uint32_t nodes_count = _nodes.size();
-
     bw.seekp(4, std::ios::beg);
     bw.write((char*)&nodes_count, sizeof(uint32_t));
     bw.write((char*)&nodes_offset, sizeof(uint64_t));
@@ -147,7 +158,7 @@ void WZ2NXSerializer::WriteNodeLevel(boost::container::vector<wz::WZNode*>& node
         if (node->GetNodes().empty()) continue;
         boost::container::vector<wz::WZNode*> childs;
         for (auto& child : node->GetNodes()) {
-            childs.push_back(&child.second);
+            childs.push_back(child.second);
         }
         boost::sort(childs, [this](wz::WZNode* const& a, wz::WZNode* const& b) -> bool {
             return (a->GetIdentity().compare(b->GetIdentity())) >= 0;
@@ -159,7 +170,7 @@ void WZ2NXSerializer::WriteNodeLevel(boost::container::vector<wz::WZNode*>& node
 }
 
 void WZ2NXSerializer::WriteUOL(wz::WZNode* node, std::ostream& bw) {
-    _nodes.push_back(node);
+     _nodes.emplace(std::pair<wz::WZNode*, uint32_t>(node, _nodes.size()));
     uint32_t zero_value = 0u;
     uint32_t name_id = AddString(node->GetIdentity());
     bw.write((char*)&name_id, sizeof(uint32_t));
@@ -172,7 +183,7 @@ void WZ2NXSerializer::WriteUOL(wz::WZNode* node, std::ostream& bw) {
 }
 
 void WZ2NXSerializer::WriteNode(wz::WZNode* node, std::ostream& bw, uint32_t next_child_id) {
-    _nodes.push_back(node);
+    _nodes.emplace(std::pair<wz::WZNode*, uint32_t>(node, _nodes.size()));
     uint16_t node_type;
     uint32_t zero_value = 0u;
     uint32_t node_size = (uint16_t)node->GetNodes().size();

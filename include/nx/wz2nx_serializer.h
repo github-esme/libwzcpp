@@ -26,7 +26,7 @@ private:
     uint32_t AddString(const std::string& value);
     void Clear();
 private:
-    boost::container::vector<wz::WZNode*> _nodes;
+    std::unordered_map<wz::WZNode*, uint32_t> _nodes;
     boost::container::vector<wz::WZNode*> _sounds_nodes;
     boost::container::vector<wz::WZNode*> _bitmaps_nodes;
     boost::container::vector<std::string> _strings;

@@ -41,7 +41,7 @@ enum class WZDataType : uint8_t {
 };
 
 typedef boost::tuple<int32_t, int32_t> Vector2i;
-typedef boost::container::map<std::string, WZNode> WZNodes;
+typedef boost::container::map<std::string, WZNode*> WZNodes;
 struct Vector {
     int32_t x;
     int32_t y;
@@ -74,6 +74,7 @@ struct WZData {
     double dreal = 0.0;
     int64_t ireal = 0;
     boost::container::vector<uint8_t> buffer;
+    boost::shared_ptr<WZNode> node;
     union {
         BitmapMeta bitmap;
         Vector vector;

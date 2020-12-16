@@ -95,6 +95,8 @@ class WZNode : public boost::enable_shared_from_this<WZNode> {
     auto GetSoundMeta() -> const AudioMeta& { return _data.audio; }
     auto GetImageValue() -> const boost::container::vector<uint8_t>&;
     auto GetImageMeta() -> const BitmapMeta& { return _data.bitmap; }
+    auto GetLinkedNode() -> WZNode*;
+    auto operator[](const std::string& key) -> WZNode*;
 
    protected:
    private:
