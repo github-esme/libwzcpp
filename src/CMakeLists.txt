@@ -10,6 +10,8 @@ add_library(wz STATIC
 )
 target_link_libraries(
     wz
+    ${SQUISH_LIBRARIES}
+    ${LZ4_LIBRARY}
     ${ZLIB_LIBRARIES}
     ${Boost_LIBRARIES}
     OpenSSL::Crypto

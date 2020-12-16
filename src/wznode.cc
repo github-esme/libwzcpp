@@ -3,6 +3,7 @@
 #include <boost/make_shared.hpp>
 #include <fstream>
 #include <iostream>
+#include <lz4.h>
 
 #include "utils.h"
 namespace wz {
@@ -16,7 +17,7 @@ auto WZNode::ExpandDirectory(uint32_t offset) -> bool {
     if (_node_type != WZNodeType::kDirectory) return false;
     boost::container::vector<WZNode> nodes;
     _reader->SetPosition(offset);
-    auto nodes_count = _reader->ReadCompressed<int32_t>();
+    auto nodes_count = _reader->ReadCompressed<uint32_t>();
     for (auto i = 0u; i < nodes_count; i++) {
         std::string identity = "";
         auto node_type = static_cast<WZNodeType>(_reader->Read<int8_t>());
@@ -173,6 +174,7 @@ auto WZNode::ExpandCanvas(uint32_t image_offset) -> bool {
     auto format2 = _reader->Read<uint8_t>();
     auto reserved = _reader->Read<uint32_t>();
     auto size = _reader->Read<uint32_t>();
+    auto reserved2 = _reader->Read<uint8_t>();
     size_t offset_bitmap = _reader->GetPosition();
     _data_node = true;
     _data.bitmap.width = width;
@@ -182,6 +184,7 @@ auto WZNode::ExpandCanvas(uint32_t image_offset) -> bool {
     _data.bitmap.reserved = reserved;
     _data.bitmap.size = size;
     _data.bitmap.offset_bitmap = offset_bitmap;
+    _data.bitmap.reserved2 = reserved2;
     auto offset_current = _reader->GetPosition();
     _reader->SetPosition(offset_current + size);
     return true;
@@ -459,5 +462,17 @@ auto WZNode::GetSoundValue() -> const boost::container::vector<uint8_t>& {
     _reader->SetPosition(offset_current);
     return _data.buffer;
 }
+
+auto WZNode::GetImageValue() -> const boost::container::vector<uint8_t>& {
+    if (_node_type != WZNodeType::kCanvas || !_data.buffer.empty()) {
+        return _data.buffer;
+    }
+    auto offset_current = _reader->GetPosition();
+    _reader->SetPosition(_data.bitmap.offset_bitmap);
+    _reader->ReadArray(_data.buffer, _data.bitmap.size);
+    _reader->SetPosition(offset_current);
+    return _data.buffer;
+}
+
 
 }  // namespace wz

@@ -19,11 +19,16 @@ private:
     void WriteNodeLevel(boost::container::vector<wz::WZNode*>& node_levels, std::ostream &bw);
     void WriteUOL(wz::WZNode* node, std::ostream& bw);
     void WriteNode(wz::WZNode* node, std::ostream& bw, uint32_t next_child_id);
-    void EnsureMultiple(std::ostream& bw, int32_t multiple);
+    void WriteString(const std::string& value, std::ostream& bw);
+    void WriteMP3(wz::WZNode* node, std::ostream& bw);
+    void WriteBitmap(wz::WZNode* node, std::ostream& bw);
+    void EnsureMultiple(int32_t multiple, std::ostream& bw);
     uint32_t AddString(const std::string& value);
     void Clear();
 private:
     boost::container::vector<wz::WZNode*> _nodes;
+    boost::container::vector<wz::WZNode*> _sounds_nodes;
+    boost::container::vector<wz::WZNode*> _bitmaps_nodes;
     boost::container::vector<std::string> _strings;
     std::unordered_map<uint32_t, wz::WZNode*> _uol_nodes;
     boost::asio::streambuf _nodes_buffer;
