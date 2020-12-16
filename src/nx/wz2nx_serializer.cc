@@ -43,7 +43,7 @@ void WZ2NXSerializer::Parse(const std::string& path_to_wz, const std::string& pa
     node_levels.push_back(root.get());
     std::ofstream bw(path_to_nx, std::ios::binary);
 
-    std::cout << "Write Headers...";
+    std::cout << "Write Headers..." << std::endl;
     bw.write("PKG4", 4);
     bw.write((char*)&zero_value, sizeof(uint32_t));  // node count
     bw.write((char*)&zero_value, sizeof(uint64_t));  // node block offset
@@ -55,7 +55,6 @@ void WZ2NXSerializer::Parse(const std::string& path_to_wz, const std::string& pa
     bw.write((char*)&zero_value, sizeof(uint64_t));  // audio offset table offset
 
     std::cout << "Write Nodes..." << std::endl;
-    auto x = bw.tellp();
     EnsureMultiple(4, bw);
     uint64_t nodes_offset = bw.tellp();
     while (!node_levels.empty())
@@ -67,14 +66,14 @@ void WZ2NXSerializer::Parse(const std::string& path_to_wz, const std::string& pa
     uint32_t strings_count = _strings.size();
     offsets.resize(strings_count, 0);
     for (auto idx = 0u; idx < strings_count; idx++) {
-        EnsureMultiple(2, bw);
+        EnsureMultiple(8, bw);
         offsets[idx] = bw.tellp();
         WriteString(_strings[idx], bw);
     }
     EnsureMultiple(8, bw);
     uint64_t strings_offset = bw.tellp();
     for (auto idx = 0u; idx < strings_count; idx++) {
-        bw.write((char*)&offsets[idx], sizeof(uint32_t));
+        bw.write((char*)&offsets[idx], sizeof(uint64_t));
     }
 
     std::cout << "Write Bitmaps..." << std::endl;
@@ -90,7 +89,7 @@ void WZ2NXSerializer::Parse(const std::string& path_to_wz, const std::string& pa
     EnsureMultiple(8, bw);
     bitmaps_offset = bw.tellp();
     for (auto idx = 0u; idx < bitmaps_count; idx++) {
-        bw.write((char*)&offsets[idx], sizeof(uint32_t));
+        bw.write((char*)&offsets[idx], sizeof(uint64_t));
     }
 
     std::cout << "Write Sound..." << std::endl;
@@ -106,7 +105,7 @@ void WZ2NXSerializer::Parse(const std::string& path_to_wz, const std::string& pa
     EnsureMultiple(8, bw);
     sounds_offset = bw.tellp();
     for (auto idx = 0u; idx < sounds_count; idx++) {
-        bw.write((char*)&offsets[idx], sizeof(uint32_t));
+        bw.write((char*)&offsets[idx], sizeof(uint64_t));
     }
 
     uint32_t nodes_count = _nodes.size();
