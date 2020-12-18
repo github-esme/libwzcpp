@@ -296,6 +296,12 @@ void WZ2NXSerializer::WriteNode(wz::WZNode* node, std::ostream& bw, uint32_t nex
             bw.write((char*)&zero_value, sizeof(uint16_t));
             break;
         }
+        case WZNodeType::kLua: {
+            auto string_id = AddString(node->GetStringValue());
+            bw.write((char*)&string_id, sizeof(uint32_t));
+            bw.write((char*)&zero_value, sizeof(uint32_t));
+            break;
+        }
         default:
             bw.write((char*)&zero_value, sizeof(uint32_t));
             bw.write((char*)&zero_value, sizeof(uint32_t));
