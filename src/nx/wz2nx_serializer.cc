@@ -41,7 +41,7 @@ void WZ2NXSerializer::Parse(const std::string& path_to_wz, const std::string& pa
     }
     boost::container::vector<wz::WZNode*> node_levels;
     node_levels.push_back(root.get());
-    std::fstream bw(path_to_nx, std::ios::binary);
+    std::fstream bw(path_to_nx, std::ios::binary | std::ios::out | std::ios::in | std::ios::trunc);
 
     std::cout << "Write Headers..." << std::endl;
     bw.write("PKG4", 4);
@@ -138,13 +138,13 @@ void WZ2NXSerializer::Parse(const std::string& path_to_wz, const std::string& pa
     std::cout << "Strings : " << _strings.size() << std::endl;
 }
 
-void WZ2NXSerializer::EnsureMultiple(int32_t multiple, std::ostream& bw) {
+void WZ2NXSerializer::EnsureMultiple(int32_t multiple, std::fstream& bw) {
     int32_t skip = (int32_t)(multiple - (bw.tellp() % multiple));
     if (skip == multiple) return;
     for (auto i = 0; i < skip; i++) bw.write("\x00", 1);
 }
 
-void WZ2NXSerializer::WriteNodeLevel(boost::container::vector<wz::WZNode*>& node_levels, std::ostream& bw) {
+void WZ2NXSerializer::WriteNodeLevel(boost::container::vector<wz::WZNode*>& node_levels, std::fstream& bw) {
     uint32_t next_child_id = _nodes.size() + node_levels.size();
     for (auto& level_node : node_levels) {
         if (level_node->GetNodeType() == WZNodeType::kUOL)
@@ -169,20 +169,19 @@ void WZ2NXSerializer::WriteNodeLevel(boost::container::vector<wz::WZNode*>& node
     node_levels = new_node_levels;
 }
 
-void WZ2NXSerializer::WriteUOL(wz::WZNode* node, std::ostream& bw) {
+void WZ2NXSerializer::WriteUOL(wz::WZNode* node, std::fstream& bw) {
     _nodes.emplace(std::pair<wz::WZNode*, uint32_t>(node, _nodes.size()));
     uint32_t zero_value = 0u;
     uint32_t name_id = AddString(node->GetIdentity());
     bw.write((char*)&name_id, sizeof(uint32_t));
     _uol_nodes.emplace(std::pair<uint32_t, wz::WZNode*>(bw.tellp(), node));
     bw.write((char*)&zero_value, sizeof(uint32_t));
-    bw.write((char*)&zero_value, sizeof(uint32_t));
     bw.write((char*)&zero_value, sizeof(uint16_t));
     bw.write((char*)&zero_value, sizeof(uint16_t));
     bw.write((char*)&zero_value, sizeof(uint64_t));
 }
 
-void WZ2NXSerializer::WriteNode(wz::WZNode* node, std::ostream& bw, uint32_t next_child_id) {
+void WZ2NXSerializer::WriteNode(wz::WZNode* node, std::fstream& bw, uint32_t next_child_id) {
     _nodes.emplace(std::pair<wz::WZNode*, uint32_t>(node, _nodes.size()));
     uint16_t node_type;
     uint32_t zero_value = 0u;
@@ -284,16 +283,21 @@ void WZ2NXSerializer::WriteNode(wz::WZNode* node, std::ostream& bw, uint32_t nex
             auto bitmap_id = _bitmaps_nodes.size();
             bw.write((char*)&bitmap_id, sizeof(uint32_t));
             _bitmaps_nodes.push_back(node);
-            bw.write((char*)&node->GetImageMeta().width, sizeof(uint32_t));
-            bw.write((char*)&node->GetImageMeta().height, sizeof(uint32_t));
+            bw.write((char*)&node->GetImageMeta().width, sizeof(uint16_t));
+            bw.write((char*)&node->GetImageMeta().height, sizeof(uint16_t));
             break;
         }
         case WZNodeType::kSound: {
-            auto audio_id = _bitmaps_nodes.size();
+            auto audio_id = _sounds_nodes.size();
             bw.write((char*)&audio_id, sizeof(uint32_t));
             _sounds_nodes.push_back(node);
-            bw.write((char*)&node->GetSoundMeta().size_mp3, sizeof(uint16_t));
-            bw.write((char*)&zero_value, sizeof(uint16_t));
+            auto meta = node->GetSoundMeta();
+            auto total_size = meta.size_mp3;
+            if (node->GetIdentity() == "DragonDream") {
+                auto m = node->GetSoundMeta();
+                int x = 1;
+            }
+            bw.write((char*)&node->GetSoundMeta().size_mp3, sizeof(uint32_t));
             break;
         }
         case WZNodeType::kLua: {
@@ -315,7 +319,7 @@ uint32_t WZ2NXSerializer::AddString(const std::string& value) {
     return id;
 }
 
-void WZ2NXSerializer::WriteString(const std::string& value, std::ostream& bw) {
+void WZ2NXSerializer::WriteString(const std::string& value, std::fstream& bw) {
     bool has_ctrl = std::count_if(value.begin(), value.end(),
                                   [](unsigned char c) { return std::iscntrl(c); }  // correct
                                   ) > 0;
@@ -328,12 +332,20 @@ void WZ2NXSerializer::WriteString(const std::string& value, std::ostream& bw) {
     bw.write(value.c_str(), string_length);
 }
 
-void WZ2NXSerializer::WriteMP3(wz::WZNode* node, std::ostream& bw) {
-    auto& buffer = node->GetSoundValue();
-    bw.write((char*)buffer.data(), buffer.size());
+void WZ2NXSerializer::WriteMP3(wz::WZNode* node, std::fstream& bw) {
+    uint64_t zero_value = 0;
+    auto buffer = node->GetSoundValue();
+    auto meta = node->GetSoundMeta();
+    // bw.write((char*)&zero_value, sizeof(uint8_t));
+    // bw.write((char*)&meta.size_mp3, sizeof(uint32_t));
+    // bw.write((char*)&meta.length_audio, sizeof(uint32_t));
+    // bw.write((char*)&meta.guilds, sizeof(AudioGuids));
+    // bw.write((char*)&meta.size_wav_header, sizeof(uint8_t));
+    // bw.write((char*)&meta.wav_header, sizeof(wav::WavFormat));
+    bw.write((char*)buffer.data(), meta.size_mp3);
 }
 
-void WZ2NXSerializer::WriteBitmap(wz::WZNode* node, std::ostream& bw) {
+void WZ2NXSerializer::WriteBitmap(wz::WZNode* node, std::fstream& bw) {
     auto& meta = node->GetImageMeta();
     auto buffer = node->GetImageValue();
     auto buffer_in = boost::container::vector<uint8_t>();
@@ -484,6 +496,7 @@ void WZ2NXSerializer::WriteBitmap(wz::WZNode* node, std::ostream& bw) {
     }
     // bitmap_offset += final_size + 4;
     bw.write(reinterpret_cast<char const*>(&final_size), sizeof(uint32_t));
+    uint64_t o = bw.tellg();
     bw.write(reinterpret_cast<char const*>(buffer_out.data()), final_size);
 }
 

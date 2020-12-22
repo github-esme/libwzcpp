@@ -40,6 +40,15 @@ enum class WZDataType : uint8_t {
     kLong = 20,
 };
 
+#pragma pack(push, 1)
+struct AudioGuids {
+    union Data
+    {
+        char data[51];
+    };
+};
+#pragma pack(pop)
+
 typedef boost::tuple<int32_t, int32_t> Vector2i;
 typedef boost::container::map<std::string, WZNode*> WZNodes;
 struct Vector {
@@ -53,6 +62,7 @@ struct AudioMeta {
     uint8_t size_wav_header;
     size_t offset_wav_header;
     size_t offset_mp3;
+    AudioGuids guilds;
     wav::WavFormat wav_header;
     bool encrpyted_header;
 };

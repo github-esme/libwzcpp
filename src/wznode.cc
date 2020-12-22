@@ -243,7 +243,8 @@ auto WZNode::ExpandSound(uint32_t image_offset) -> bool {
     const auto kSoundHeaderSize = 51;
     auto offset_sound_header = _reader->GetPosition();
     // skipped sound header buffer ( 51 bytes )
-    _reader->SetPosition(_reader->GetPosition() + kSoundHeaderSize);
+    // _reader->SetPosition(_reader->GetPosition() + kSoundHeaderSize);
+    _data.audio.guilds = _reader->Read<AudioGuids>();
     auto size_wav_header = _reader->Read<uint8_t>();
     auto offset_wav_header = _reader->GetPosition();
     _data.audio.offset_sound_header = offset_sound_header;

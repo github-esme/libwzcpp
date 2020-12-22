@@ -16,13 +16,13 @@ class WZ2NXSerializer : boost::noncopyable {
    public:
     void Parse(const std::string& path_to_wz, const std::string& path_to_nx);
 private:
-    void WriteNodeLevel(boost::container::vector<wz::WZNode*>& node_levels, std::ostream &bw);
-    void WriteUOL(wz::WZNode* node, std::ostream& bw);
-    void WriteNode(wz::WZNode* node, std::ostream& bw, uint32_t next_child_id);
-    void WriteString(const std::string& value, std::ostream& bw);
-    void WriteMP3(wz::WZNode* node, std::ostream& bw);
-    void WriteBitmap(wz::WZNode* node, std::ostream& bw);
-    void EnsureMultiple(int32_t multiple, std::ostream& bw);
+    void WriteNodeLevel(boost::container::vector<wz::WZNode*>& node_levels, std::fstream &bw);
+    void WriteUOL(wz::WZNode* node, std::fstream& bw);
+    void WriteNode(wz::WZNode* node, std::fstream& bw, uint32_t next_child_id);
+    void WriteString(const std::string& value, std::fstream& bw);
+    void WriteMP3(wz::WZNode* node, std::fstream& bw);
+    void WriteBitmap(wz::WZNode* node, std::fstream& bw);
+    void EnsureMultiple(int32_t multiple, std::fstream& bw);
     uint32_t AddString(const std::string& value);
     void Clear();
 private:
